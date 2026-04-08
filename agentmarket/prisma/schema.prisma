@@ -1,0 +1,114 @@
+// AgentMarket Database Schema
+// API Marketplace for AI Agents with x402 Payments on Stellar
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Provider - API creators who receive payments
+model Provider {
+  id             String       @id @default(cuid())
+  name           String
+  stellarAddress String       @unique
+  email          String?
+  description    String?
+  verified       Boolean      @default(false)
+  totalEarnings  Float        @default(0)
+  apiListings    ApiListing[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+// API Listing - Individual API endpoints available in the marketplace
+model ApiListing {
+  id           String     @id @default(cuid())
+  name         String
+  slug         String     @unique
+  description  String
+  longDescription String?
+  category     String     // DATA, FINANCE, GEO, AI, UTILITIES, NEWS, WEATHER
+  priceUsdc    Float
+  endpoint     String
+  method       String     @default("GET")
+  
+  // Provider relationship
+  provider     Provider   @relation(fields: [providerId], references: [id])
+  providerId   String
+  
+  // Stats
+  totalCalls   Int        @default(0)
+  successRate  Float      @default(100)
+  avgLatencyMs Int        @default(0)
+  
+  // Status
+  isActive     Boolean    @default(true)
+  isProxied    Boolean    @default(false)
+  isFeatured   Boolean    @default(false)
+  
+  // Timestamps
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  // Relations
+  calls        ApiCall[]
+}
+
+// API Call - Record of each paid API call
+model ApiCall {
+  id           String     @id @default(cuid())
+  
+  // API reference
+  apiListing   ApiListing @relation(fields: [apiListingId], references: [id])
+  apiListingId String
+  
+  // Caller info
+  callerAddress String
+  
+  // Payment info
+  txHash       String     @unique
+  amountUsdc   Float
+  
+  // Status
+  success      Boolean
+  errorMessage String?
+  latencyMs    Int?
+  
+  // Timestamp
+  createdAt    DateTime   @default(now())
+}
+
+// Agent Budget - On-chain budget tracking (cached from Soroban)
+model AgentBudget {
+  id              String   @id @default(cuid())
+  walletAddress   String   @unique
+  
+  // Budget limits (USDC)
+  totalBudget     Float
+  spentAmount     Float    @default(0)
+  remainingBudget Float
+  
+  // Per-call and per-session limits
+  maxPerCall      Float?
+  maxPerSession   Float?
+  
+  // Contract reference
+  contractAddress String?
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Marketplace Stats - Aggregated statistics
+model MarketplaceStats {
+  id              String   @id @default("global")
+  totalApis       Int      @default(0)
+  totalProviders  Int      @default(0)
+  totalCalls      Int      @default(0)
+  totalVolumeUsdc Float    @default(0)
+  updatedAt       DateTime @updatedAt
+}

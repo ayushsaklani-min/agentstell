@@ -1,0 +1,138 @@
+# AgentMarket — Product Idea Brief
+
+## One Line
+A pay-per-call API marketplace built for AI agents. Payment is authentication. No accounts, no API keys, no subscriptions.
+
+---
+
+## The Problem
+AI agents can reason, plan, and act autonomously. But the moment they need external data — weather, news, currency rates, air quality — they hit a wall. Every API on the internet today requires a human to create an account, enter card details, choose a subscription plan, and manage API keys. An autonomous agent cannot do any of this. A human has to step in. That pause breaks the entire promise of autonomous agents.
+
+---
+
+## The Solution
+AgentMarket is an API marketplace where payment IS authentication. An agent needs data, it pays a tiny amount of USDC via the x402 protocol on Stellar, it gets the data back instantly. No account creation. No API keys. No subscription. The entire interaction is one programmatic call.
+
+The developer or agent experience looks like this:
+
+```js
+const weather = await agent.get('weather', { city: 'Mumbai' })
+const news = await agent.get('news', { topic: 'AI', limit: 5 })
+const airQuality = await agent.get('air-quality', { city: 'Delhi' })
+```
+
+That is the entire experience. Nothing else needed.
+
+---
+
+## The Three Things AgentMarket Is
+
+### 1. The Marketplace
+A website where API providers list their endpoints with a per-call USDC price. Anyone can list an API. Agents and developers browse the marketplace to discover available APIs by category — data, finance, geo, AI, utilities. Each listing shows the API name, what it returns, the price per call in USDC, and total calls made. AgentMarket itself proxies a set of popular APIs (weather, news, air quality, currency, IP geolocation) so the marketplace is populated and useful from day one.
+
+### 2. The SDK
+An npm package called `agentmarket-sdk`. This is the hero product. It handles everything — connecting a Stellar wallet, discovering APIs from the marketplace registry, making the x402 micropayment, and returning the data. It works identically whether called by a human developer or a fully autonomous AI agent. Budget limits are set once and enforced automatically — the agent cannot overspend.
+
+### 3. The Payment Infrastructure
+Every API call is paid for via the x402 protocol on Stellar Testnet. x402 is an open protocol where the HTTP 402 Payment Required status code is activated — a client requests a resource, the server returns a price, the client pays in USDC, the server delivers the data. On Stellar this settles in under 5 seconds with near-zero fees, making micropayments of 0.001 USDC per call economically viable. Soroban smart contracts on Stellar enforce the spending limits on-chain so they cannot be bypassed.
+
+---
+
+## How It Works End to End
+
+1. **Provider lists an API** — A developer registers their API endpoint on AgentMarket, sets a price per call (e.g. 0.002 USDC), and it becomes immediately discoverable. They receive USDC in their Stellar wallet for every call, settled instantly.
+
+2. **Developer configures the SDK** — One-time setup. Connect a Stellar testnet wallet. Set budget limits (per call, per session, per provider). These limits are enforced by a Soroban contract on-chain.
+
+3. **Agent makes a call** — The agent calls `agent.get('weather', { city: 'Mumbai' })`. The SDK looks up the weather API in the registry, sees the price, checks the budget, pays via x402 on Stellar, receives the data, and returns it to the agent. All of this happens in under one second.
+
+4. **Payment settles instantly** — The API provider receives USDC in their Stellar wallet within seconds. No 30-day billing cycles. No platform taking a large cut. AgentMarket takes a 10-15% margin on proxied calls.
+
+5. **Budget enforced automatically** — When the session budget runs out the SDK stops making paid calls. The agent cannot overspend. The developer never gets a surprise bill.
+
+---
+
+## The APIs Listed on Day One
+AgentMarket proxies these real APIs so the marketplace is full from launch:
+
+- **OpenWeatherMap** — current weather by city — 0.001 USDC per call
+- **AirVisual** — air quality index by city — 0.001 USDC per call
+- **NewsAPI** — top headlines by topic — 0.002 USDC per call
+- **ExchangeRate API** — currency conversion — 0.001 USDC per call
+- **IPInfo** — geolocation by IP address — 0.001 USDC per call
+- **OpenAI / Gemini** — AI inference — 0.005 USDC per call
+
+AgentMarket holds the API keys for these services, proxies the calls, takes a small margin, and delivers the data.
+
+---
+
+## The Demo
+Three panels visible simultaneously on screen:
+
+**Panel 1 — The Agent**
+An AI agent is given one task: "Research air quality, weather, and top news for the 5 most polluted Indian cities today and give me a weekend travel recommendation." No human involvement after this point.
+
+**Panel 2 — The Marketplace**
+Shows the live API listings with their USDC prices. Weather at 0.001 USDC. Air quality at 0.001 USDC. News at 0.002 USDC.
+
+**Panel 3 — Live Stellar Transaction Feed**
+Every time the agent calls an API, a new Stellar testnet transaction appears on screen. City by city. Call by call. USDC leaving the agent wallet. Providers receiving it instantly. At the end the agent delivers a structured travel recommendation. Total spend: approximately 0.023 USDC. Time taken: under 20 seconds. Zero human intervention after the initial task.
+
+---
+
+## Why Stellar Specifically
+- Sub-cent transaction fees make 0.001 USDC per call viable — on Ethereum this would be impossible
+- 3-5 second finality keeps agents moving without waiting
+- Native USDC support — no wrapping, no bridging
+- Soroban smart contracts enforce spending limits on-chain, not just in application logic
+- x402 on Stellar is officially supported by the Stellar Development Foundation with live tooling and documentation
+- 99.99% uptime — agents operate 24/7 and cannot afford network downtime
+
+---
+
+## Why This Is Not Just a Better RapidAPI
+RapidAPI was built for humans. It requires accounts, API key management, and monthly subscriptions. An autonomous agent cannot use it mid-task. AgentMarket is built from the ground up assuming the caller might not be human. Payment is the only credential needed. There is no concept of an account. Budget limits are programmable and enforced on-chain. The entire value proposition only makes sense if you accept that agents are the primary users — not developers, not humans.
+
+---
+
+## Business Model
+- **Transaction margin** — 10-15% on every proxied API call. Revenue scales directly with agent usage. No sales team needed.
+- **Provider listing fees** — Free during the growth phase. Small monthly fee for premium placement at scale.
+- **Enterprise SDK** — Companies deploying large agent fleets pay for higher rate limits, dedicated support, and custom spending policies.
+
+---
+
+## The Market
+- Autonomous AI agent market: $9.97 billion in 2025, growing to $14.25 billion in 2026 (43% growth)
+- 28 million enterprise AI agents deployed globally as of early 2026
+- Every single one needs external data and tools to function
+- None of them have a clean programmatic way to pay for it today
+- Galaxy Research estimates agentic commerce could represent $3-5 trillion in transactions by 2030
+
+---
+
+## The Core Insight
+The existing internet was built for human users who can fill forms, remember passwords, and manage subscriptions. The agentic internet needs infrastructure that works for software — where payment is authentication, access is instant, and budgets are programmable. AgentMarket is not a better RapidAPI. It is the first API marketplace designed from the ground up for a world where the caller might not be human.
+
+---
+
+## Competitive Landscape
+- **RapidAPI** — requires accounts and API keys, built for humans, monthly subscriptions, no agent support
+- **AgentPay** — closest existing product, x402 on Stellar, but only 9 crypto-focused tools, no open marketplace for third-party providers, no polished SDK
+- **Direct API subscriptions** — monthly billing, massive overpayment for occasional use, no agent support
+- **AgentMarket's gap** — the curated open marketplace layer, the one-liner SDK, and the general-purpose API catalog (not just crypto data) that none of the above provide
+
+---
+
+## Hackathon Alignment
+This project was built for the Stellar International Hackathon focused on agent payments. The hackathon brief specifically calls out:
+- Agents that can buy, sell, coordinate, and earn — AgentMarket is this
+- Paid tools and autonomous research workflows — the demo is exactly this
+- APIs that monetize every useful call instead of subscriptions — this is the core model
+- x402 on Stellar — the entire payment layer
+- Soroban authorization and spending policies — the budget enforcement layer
+- Machine Payments Protocol (MPP) experimental SDK — can be integrated as an additional payment flow
+
+The one sentence that wins: "Every API on the internet was built assuming a human would set it up. We built the first one assuming nobody will."
+
+resource claude --resume 95da7092-8c59-4b19-ac96-46257dd3c27b

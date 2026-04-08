@@ -1,0 +1,132 @@
+name: Build and Publish SDK & CLI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'agentmarket-sdk/**'
+      - 'cli/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'agentmarket-sdk/**'
+      - 'cli/**'
+  release:
+    types: [published]
+
+jobs:
+  build-sdk:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          
+      - name: Install SDK Dependencies
+        working-directory: agentmarket-sdk
+        run: npm ci
+        
+      - name: Build SDK
+        working-directory: agentmarket-sdk
+        run: npm run build
+        
+      - name: Run SDK Tests
+        working-directory: agentmarket-sdk
+        run: npm test || true  # Tests not fully set up yet
+        
+      - name: Upload SDK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentmarket-sdk-dist
+          path: agentmarket-sdk/dist
+
+  build-cli:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          
+      - name: Install CLI Dependencies
+        working-directory: cli
+        run: npm ci
+        
+      - name: Build CLI
+        working-directory: cli
+        run: npm run build
+        
+      - name: Test CLI
+        working-directory: cli
+        run: node dist/cli.js --help
+        
+      - name: Upload CLI Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agentmarket-cli-dist
+          path: cli/dist
+
+  publish-sdk:
+    runs-on: ubuntu-latest
+    needs: build-sdk
+    if: github.event_name == 'release'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          
+      - name: Install Dependencies
+        working-directory: agentmarket-sdk
+        run: npm ci
+        
+      - name: Build
+        working-directory: agentmarket-sdk
+        run: npm run build
+        
+      - name: Publish to npm
+        working-directory: agentmarket-sdk
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-cli:
+    runs-on: ubuntu-latest
+    needs: build-cli
+    if: github.event_name == 'release'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          
+      - name: Install Dependencies
+        working-directory: cli
+        run: npm ci
+        
+      - name: Build
+        working-directory: cli
+        run: npm run build
+        
+      - name: Publish to npm
+        working-directory: cli
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

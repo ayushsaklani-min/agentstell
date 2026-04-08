@@ -1,0 +1,63 @@
+{
+  "name": "agstell-sdk",
+  "version": "0.1.1",
+  "description": "SDK for AI agents to access APIs via x402 micropayments on Stellar. Payment is authentication.",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "ai-agents",
+    "api-marketplace",
+    "stellar",
+    "x402",
+    "micropayments",
+    "usdc",
+    "autonomous-agents",
+    "machine-payments",
+    "http-402",
+    "payment-protocol"
+  ],
+  "author": "AgentMarket",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentmarket/agentmarket-sdk"
+  },
+  "homepage": "https://agentmarket.xyz",
+  "bugs": {
+    "url": "https://github.com/agentmarket/agentmarket-sdk/issues"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0",
+    "eslint": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
