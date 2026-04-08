@@ -19,6 +19,9 @@ import type {
   AIResponse,
   EventHandler,
   SDKEvent,
+  PreflightResult,
+  ExecutionReceipt,
+  CapabilitySpec,
 } from '../types'
 
 // Default configuration
@@ -178,6 +181,12 @@ export class AgentMarket {
         return this.createErrorResult(apiName, budgetCheck.reason!, startTime)
       }
 
+      // Validate params against capability spec before paying
+      const paramErrors = this.validateParams(api, params)
+      if (paramErrors.length > 0) {
+        return this.createErrorResult(apiName, `Request validation failed: ${paramErrors.join('; ')}`, startTime)
+      }
+
       // Build request based on the API contract.
       const request = this.buildRequest(api, params)
 
@@ -188,6 +197,8 @@ export class AgentMarket {
       })
 
       // Execute with x402 payment
+      this.emit({ type: 'payment_required', timestamp: new Date(), data: { apiName, priceUsdc: api.priceUsdc } })
+
       const { data, txHash, cost } = await this.x402.executeWithPayment<T>(
         request.url,
         request.options
@@ -197,19 +208,33 @@ export class AgentMarket {
       this.sessionSpent += cost
       this.callCount++
 
-      // Emit events
+      // Emit lifecycle events
       if (txHash) {
         this.emit({
           type: 'payment_confirmed',
           timestamp: new Date(),
-          data: { 
-            apiName, 
-            txHash, 
+          data: {
+            apiName,
+            txHash,
             cost,
             explorerUrl: this.stellar.getExplorerUrl(txHash),
           },
         })
+
+        // Record receipt
+        this.receipts.push({
+          slug: api.slug,
+          txHash,
+          network: this.config.network,
+          providerAddress: api.provider.stellarAddress,
+          amountUsdc: cost,
+          timestamp: new Date(),
+          latencyMs: Date.now() - startTime,
+          success: true,
+        })
       }
+
+      this.emit({ type: 'upstream_completed', timestamp: new Date(), data: { apiName, latencyMs: Date.now() - startTime } })
 
       // Check if approaching budget limit
       const remaining = this.config.budgetLimits.maxPerSession - this.sessionSpent
@@ -302,6 +327,7 @@ export class AgentMarket {
   resetSession(): void {
     this.sessionSpent = 0
     this.callCount = 0
+    this.receipts = []
   }
 
   // ============ Wallet Management ============
@@ -374,6 +400,59 @@ export class AgentMarket {
     return this.get<T>(apiName, params)
   }
 
+  // ============ Preflight ============
+
+  /**
+   * Inspect an API before paying — returns cost, capability spec, budget check, provider info.
+   * Agents should call this before committing real money.
+   */
+  async preflight(apiName: string): Promise<PreflightResult> {
+    const api = await this.loadApiInfo(apiName)
+    if (!api) {
+      throw new Error(`API '${apiName}' not found in registry or marketplace`)
+    }
+
+    const budgetCheck = this.checkBudget(api.priceUsdc)
+    const spec = api.capabilitySpec ?? null
+
+    const result: PreflightResult = {
+      slug: api.slug,
+      name: api.name,
+      method: api.method,
+      endpoint: api.endpoint,
+      priceUsdc: api.priceUsdc,
+      provider: api.provider,
+      budgetAllowed: budgetCheck.allowed,
+      budgetReason: budgetCheck.reason,
+      capabilitySpec: spec,
+      estimatedLatency: spec?.latencyHint ?? 'fast',
+      sideEffects: spec?.sideEffectLevel ?? 'read',
+      idempotent: spec?.idempotent ?? true,
+    }
+
+    this.emit({
+      type: 'preflight',
+      timestamp: new Date(),
+      data: { slug: api.slug, priceUsdc: api.priceUsdc, budgetAllowed: budgetCheck.allowed },
+    })
+
+    return result
+  }
+
+  // ============ Receipts ============
+
+  private receipts: ExecutionReceipt[] = []
+
+  /** Get all execution receipts from this session */
+  getReceipts(): ExecutionReceipt[] {
+    return [...this.receipts]
+  }
+
+  /** Get receipt for a specific transaction hash */
+  getReceipt(txHash: string): ExecutionReceipt | undefined {
+    return this.receipts.find((r) => r.txHash === txHash)
+  }
+
   // ============ Event Handling ============
 
   /** Subscribe to SDK events */
@@ -395,6 +474,40 @@ export class AgentMarket {
   }
 
   // ============ Private Helpers ============
+
+  /**
+   * Validate caller-supplied params against the API's capability spec.
+   * Returns an array of human-readable error strings (empty = valid).
+   */
+  private validateParams(api: ApiInfo, params: Record<string, unknown>): string[] {
+    const spec = api.capabilitySpec
+    if (!spec || spec.params.length === 0) return []
+
+    const errors: string[] = []
+
+    for (const param of spec.params) {
+      const value = params[param.name]
+
+      if (param.required && (value === undefined || value === null)) {
+        errors.push(`Missing required param '${param.name}' (${param.type})`)
+        continue
+      }
+
+      if (value !== undefined && value !== null) {
+        const actualType = typeof value
+        // Loose type check — 'number' includes int, 'string' includes any string
+        if (param.type === 'number' && actualType !== 'number') {
+          errors.push(`Param '${param.name}' should be a number, got ${actualType}`)
+        } else if (param.type === 'string' && actualType !== 'string') {
+          errors.push(`Param '${param.name}' should be a string, got ${actualType}`)
+        } else if (param.type === 'boolean' && actualType !== 'boolean') {
+          errors.push(`Param '${param.name}' should be a boolean, got ${actualType}`)
+        }
+      }
+    }
+
+    return errors
+  }
 
   private checkBudget(price: number): { allowed: boolean; reason?: string } {
     const { maxPerCall, maxPerSession } = this.config.budgetLimits
@@ -489,6 +602,24 @@ export class AgentMarket {
     const providerName = String(record.providerName ?? 'Unknown provider')
     const providerStellarAddress = String(record.providerStellarAddress ?? '')
 
+    let capabilitySpec: CapabilitySpec | undefined
+    const rawSpec = record.capabilitySpec as Record<string, unknown> | undefined
+    if (rawSpec && typeof rawSpec === 'object') {
+      capabilitySpec = {
+        contentType: String(rawSpec.contentType ?? 'application/json'),
+        params: Array.isArray(rawSpec.params) ? rawSpec.params as CapabilitySpec['params'] : [],
+        requestSchema: (rawSpec.requestSchema as Record<string, unknown>) ?? null,
+        responseSchema: (rawSpec.responseSchema as Record<string, unknown>) ?? null,
+        exampleRequest: (rawSpec.exampleRequest as Record<string, unknown>) ?? {},
+        exampleResponse: (rawSpec.exampleResponse as Record<string, unknown>) ?? {},
+        sideEffectLevel: (['read', 'write', 'financial', 'destructive'].includes(String(rawSpec.sideEffectLevel))
+          ? String(rawSpec.sideEffectLevel) : 'read') as CapabilitySpec['sideEffectLevel'],
+        latencyHint: (['fast', 'medium', 'slow'].includes(String(rawSpec.latencyHint))
+          ? String(rawSpec.latencyHint) : 'fast') as CapabilitySpec['latencyHint'],
+        idempotent: rawSpec.idempotent !== false,
+      }
+    }
+
     return {
       id: String(record.id ?? record.slug ?? ''),
       name: String(record.name ?? record.slug ?? ''),
@@ -502,6 +633,7 @@ export class AgentMarket {
         name: providerName,
         stellarAddress: providerStellarAddress,
       },
+      capabilitySpec,
     }
   }
 

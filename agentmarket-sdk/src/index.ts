@@ -58,17 +58,25 @@ export type {
   BudgetLimits,
   BudgetStatus,
   NetworkType,
-  
+
   // API
   ApiInfo,
   ApiCategory,
   ApiResult,
-  
+
+  // Capability spec
+  CapabilitySpec,
+  ParamSpec,
+  SideEffectLevel,
+  LatencyHint,
+  PreflightResult,
+  ExecutionReceipt,
+
   // x402
   PaymentDetails,
   PaymentProof,
   PaymentRequired,
-  
+
   // Response types
   WeatherResponse,
   AirQualityResponse,
@@ -77,15 +85,16 @@ export type {
   CurrencyResponse,
   GeolocationResponse,
   AIResponse,
-  
+
   // Stellar
   StellarBalance,
   TransactionResult,
-  
+
   // Events
   SDKEvent,
+  SDKEventType,
   EventHandler,
-  
+
   // Errors
   ErrorCode,
 } from './types'

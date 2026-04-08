@@ -39,6 +39,33 @@ const USDC_MAINNET = {
   issuer: 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN',
 }
 
+/**
+ * Extract structured error detail from Horizon transaction failures.
+ * Horizon responses include result_codes (e.g. "op_underfunded", "op_no_trust")
+ * which are far more actionable than the generic error message.
+ */
+function extractHorizonError(error: unknown): string {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const resp = (error as { response?: { data?: { extras?: { result_codes?: { transaction?: string; operations?: string[] } }; title?: string } } }).response
+    const extras = resp?.data?.extras
+    if (extras?.result_codes) {
+      const codes = extras.result_codes
+      const parts: string[] = []
+      if (codes.transaction) parts.push(`tx: ${codes.transaction}`)
+      if (codes.operations?.length) parts.push(`ops: [${codes.operations.join(', ')}]`)
+      if (parts.length > 0) {
+        const title = resp?.data?.title || 'Transaction failed'
+        return `${title} — ${parts.join(', ')}`
+      }
+    }
+    if (resp?.data?.extras) {
+      const title = resp.data.title || 'Transaction failed'
+      return title
+    }
+  }
+  return error instanceof Error ? error.message : 'Payment failed'
+}
+
 export class StellarClient {
   private network: NetworkType
   private server: StellarSdk.Horizon.Server
@@ -143,10 +170,9 @@ export class StellarClient {
         ledger: result.ledger,
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Payment failed'
       return {
         success: false,
-        error: message,
+        error: extractHorizonError(error),
       }
     }
   }
@@ -215,10 +241,9 @@ export class StellarClient {
         ledger: result.ledger,
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Trustline failed'
       return {
         success: false,
-        error: message,
+        error: extractHorizonError(error),
       }
     }
   }

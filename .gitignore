@@ -28,3 +28,14 @@ pnpm-debug.log*
 
 .DS_Store
 Thumbs.db
+
+# AI tool config — not relevant for code review
+CLAUDE.md
+AGENTS.md
+**/CLAUDE.md
+**/AGENTS.md
+.github/copilot-instructions.md
+
+# Rough notes
+idea.txt.txt
+resources.txt

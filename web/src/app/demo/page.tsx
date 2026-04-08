@@ -1,149 +1,109 @@
-'use client';
+'use client'
 
-import Link from 'next/link';
-import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Zap, CheckCircle, Clock, Wallet, Send, RefreshCw, ExternalLink, AlertCircle } from 'lucide-react';
+import Link from 'next/link'
+import { useState, useEffect, useCallback } from 'react'
+import { Nav } from '@/components/Nav'
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  Loader2,
+  RefreshCw,
+  Send,
+  Wallet,
+} from 'lucide-react'
 
-interface ApiDefinition {
-  id: string;
-  name: string;
-  icon: string;
-  price: number;
-  query: Record<string, string>;
+interface ApiDef {
+  id: string
+  name: string
+  icon: string
+  price: number
+  query: Record<string, string>
 }
 
-const APIS: ApiDefinition[] = [
-  {
-    id: 'weather',
-    name: 'Weather',
-    icon: 'WX',
-    price: 0.001,
-    query: { city: 'Mumbai' },
-  },
-  {
-    id: 'news',
-    name: 'News',
-    icon: 'NEWS',
-    price: 0.002,
-    query: { topic: 'stellar', limit: '3' },
-  },
-  {
-    id: 'ai',
-    name: 'AI',
-    icon: 'AI',
-    price: 0.005,
-    query: { prompt: 'Summarize why x402 micropayments are useful for agents.' },
-  },
-  {
-    id: 'currency',
-    name: 'Currency',
-    icon: 'FX',
-    price: 0.001,
-    query: { from: 'USD', to: 'INR', amount: '100' },
-  },
-];
+const APIS: ApiDef[] = [
+  { id: 'weather', name: 'Weather', icon: 'WX', price: 0.001, query: { city: 'Mumbai' } },
+  { id: 'news', name: 'News', icon: 'NEWS', price: 0.002, query: { topic: 'stellar', limit: '3' } },
+  { id: 'ai', name: 'AI', icon: 'AI', price: 0.005, query: { prompt: 'Summarize why x402 micropayments are useful for AI agents.' } },
+  { id: 'currency', name: 'Currency', icon: 'FX', price: 0.001, query: { from: 'USD', to: 'INR', amount: '100' } },
+]
+
+type TxStatus = 'pending' | 'confirmed' | 'success' | 'error'
 
 interface Transaction {
-  id: string;
-  api: string;
-  amount: number;
-  status: 'pending' | 'confirmed' | 'success' | 'error';
-  timestamp: Date;
-  txHash?: string;
-  explorerUrl?: string;
-  data?: Record<string, unknown>;
-  error?: string;
+  id: string
+  api: string
+  amount: number
+  status: TxStatus
+  timestamp: Date
+  txHash?: string
+  explorerUrl?: string
+  data?: Record<string, unknown>
+  error?: string
 }
 
 interface WalletInfo {
-  publicKey: string;
-  network: string;
-  xlm: string;
-  usdc: string;
+  publicKey: string
+  network: string
+  xlm: string
+  usdc: string
 }
 
-function buildApiUrl(apiId: string, query: Record<string, string>) {
-  const search = new URLSearchParams(query);
-  return `/api/proxy/${apiId}?${search.toString()}`;
-}
-
-function getExplorerAccountUrl(network: string, publicKey: string) {
-  const networkPath = network === 'mainnet' ? 'public' : 'testnet';
-  return `https://stellar.expert/explorer/${networkPath}/account/${publicKey}`;
+function buildApiUrl(id: string, query: Record<string, string>) {
+  return `/api/proxy/${id}?${new URLSearchParams(query)}`
 }
 
 export default function DemoPage() {
-  const [selectedApi, setSelectedApi] = useState('weather');
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [totalSpent, setTotalSpent] = useState(0);
-  const [wallet, setWallet] = useState<WalletInfo | null>(null);
-  const [walletLoading, setWalletLoading] = useState(true);
-  const [walletError, setWalletError] = useState<string | null>(null);
+  const [selected, setSelected] = useState('weather')
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [loading, setLoading] = useState(false)
+  const [totalSpent, setTotalSpent] = useState(0)
+  const [wallet, setWallet] = useState<WalletInfo | null>(null)
+  const [walletLoading, setWalletLoading] = useState(true)
+  const [walletError, setWalletError] = useState<string | null>(null)
 
-  // Fetch real wallet balance
-  const fetchWalletBalance = useCallback(async () => {
+  const fetchWallet = useCallback(async () => {
+    setWalletLoading(true)
+    setWalletError(null)
     try {
-      setWalletLoading(true);
-      setWalletError(null);
-      const res = await fetch('/api/pay');
+      const res = await fetch('/api/pay')
       if (!res.ok) {
-        const errorBody = await res.json().catch(() => null);
-        throw new Error(errorBody?.error || 'Failed to fetch wallet');
+        const err = await res.json().catch(() => null)
+        throw new Error(err?.error ?? 'Failed to fetch wallet')
       }
-      const data = await res.json();
-      setWallet(data);
-    } catch (err) {
-      setWalletError(err instanceof Error ? err.message : 'Failed to load wallet');
+      setWallet(await res.json())
+    } catch (e) {
+      setWalletError(e instanceof Error ? e.message : 'Failed to load wallet')
     } finally {
-      setWalletLoading(false);
+      setWalletLoading(false)
     }
-  }, []);
+  }, [])
 
-  useEffect(() => {
-    fetchWalletBalance();
-  }, [fetchWalletBalance]);
+  useEffect(() => { fetchWallet() }, [fetchWallet])
 
-  const handleApiCall = async () => {
-    const api = APIS.find(a => a.id === selectedApi)!;
-    const apiUrl = buildApiUrl(api.id, api.query);
-    setIsLoading(true);
+  const handleCall = async () => {
+    const api = APIS.find((a) => a.id === selected)!
+    const url = buildApiUrl(api.id, api.query)
+    setLoading(true)
 
-    // Create pending transaction
-    const txId = Math.random().toString(36).substring(7);
-    const newTx: Transaction = {
-      id: txId,
-      api: api.name,
-      amount: api.price,
-      status: 'pending',
-      timestamp: new Date(),
-    };
-    setTransactions(prev => [newTx, ...prev]);
+    const txId = Math.random().toString(36).slice(2, 9)
+    setTransactions((prev) => [
+      { id: txId, api: api.name, amount: api.price, status: 'pending', timestamp: new Date() },
+      ...prev,
+    ])
 
     try {
-      // Step 1: Request the API and receive payment details from the canonical backend.
-      const paymentRequiredRes = await fetch(apiUrl);
+      // Step 1 — get 402
+      const step1 = await fetch(url)
+      if (step1.status !== 402) throw new Error(`Expected 402, got ${step1.status}`)
+      const { payment } = await step1.json()
+      if (!payment?.recipient || !payment?.amount) throw new Error('Invalid 402 response')
+      const amount = parseFloat(payment.amount)
 
-      if (paymentRequiredRes.status !== 402) {
-        const unexpectedBody = await paymentRequiredRes.text();
-        throw new Error(
-          `Expected 402 Payment Required but received ${paymentRequiredRes.status}: ${unexpectedBody}`
-        );
-      }
-
-      const paymentRequired = await paymentRequiredRes.json();
-      const payment = paymentRequired.payment as
-        | { recipient?: string; amount?: string; memo?: string; network?: 'testnet' | 'mainnet' }
-        | undefined;
-
-      if (!payment?.recipient || !payment?.amount) {
-        throw new Error('Payment details missing from 402 response');
-      }
-
-      const paymentAmount = parseFloat(payment.amount);
-
-      // Step 2: Pay the exact 402 invoice via the demo wallet helper.
-      const payRes = await fetch('/api/pay', {
+      // Step 2 — pay
+      const step2 = await fetch('/api/pay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -152,346 +112,312 @@ export default function DemoPage() {
           memo: payment.memo,
           network: payment.network,
         }),
-      });
+      })
+      if (!step2.ok) { const e = await step2.json(); throw new Error(e.error ?? 'Payment failed') }
+      const payData = await step2.json()
 
-      if (!payRes.ok) {
-        const errData = await payRes.json();
-        throw new Error(errData.error || 'Payment failed');
-      }
+      setTransactions((prev) =>
+        prev.map((tx) =>
+          tx.id === txId ? { ...tx, status: 'confirmed', txHash: payData.txHash, explorerUrl: payData.explorerUrl, amount } : tx
+        )
+      )
 
-      const payData = await payRes.json();
-      
-      // Update to confirmed with real tx hash
-      setTransactions(prev => prev.map(tx => 
-        tx.id === txId ? { 
-          ...tx, 
-          status: 'confirmed', 
-          txHash: payData.txHash,
-          explorerUrl: payData.explorerUrl,
-          amount: paymentAmount,
-        } : tx
-      ));
-
-      // Step 3: Retry the API request with the canonical x402 payment proof.
-      const apiRes = await fetch(apiUrl, {
+      // Step 3 — retry with proof
+      const step3 = await fetch(url, {
         headers: {
           'X-Payment-Proof': payData.proofHeader,
           'X-Payment-TxHash': payData.txHash,
           'X-Payment-Network': payData.network,
         },
-      });
+      })
+      if (!step3.ok) throw new Error(`API call failed: ${step3.status}`)
+      const data = await step3.json()
 
-      if (!apiRes.ok) {
-        const apiError = await apiRes.text();
-        throw new Error(`API call failed: ${apiRes.status} ${apiError}`);
-      }
-
-      const apiData = await apiRes.json();
-
-      // Update to success with data
-      setTransactions(prev => prev.map(tx => 
-        tx.id === txId ? { ...tx, status: 'success', data: apiData } : tx
-      ));
-
-      setTotalSpent(prev => prev + paymentAmount);
-      
-      // Refresh wallet balance
-      fetchWalletBalance();
-
-    } catch (err) {
-      // Update to error status
-      setTransactions(prev => prev.map(tx => 
-        tx.id === txId ? { 
-          ...tx, 
-          status: 'error', 
-          error: err instanceof Error ? err.message : 'Unknown error' 
-        } : tx
-      ));
+      setTransactions((prev) =>
+        prev.map((tx) => (tx.id === txId ? { ...tx, status: 'success', data } : tx))
+      )
+      setTotalSpent((s) => s + amount)
+      fetchWallet()
+    } catch (e) {
+      setTransactions((prev) =>
+        prev.map((tx) =>
+          tx.id === txId ? { ...tx, status: 'error', error: e instanceof Error ? e.message : 'Unknown error' } : tx
+        )
+      )
     } finally {
-      setIsLoading(false);
+      setLoading(false)
     }
-  };
+  }
+
+  const selectedApi = APIS.find((a) => a.id === selected)!
 
   return (
-    <main className="min-h-screen">
-      {/* Header */}
-      <header className="fixed top-0 w-full z-50 bg-[#0a0a0a]/80 backdrop-blur-lg border-b border-[#27272a]">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#1f2937] text-[10px] font-semibold tracking-[0.18em] text-white">AM</span>
-            <span className="font-bold text-xl">AgentMarket</span>
+    <main className="min-h-screen bg-white">
+      <Nav />
+
+      <div className="mx-auto max-w-7xl px-6 pb-16 pt-24">
+        <div className="mt-4">
+          <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900">
+            <ArrowLeft className="h-4 w-4" />
+            Home
           </Link>
-          <nav className="hidden md:flex items-center gap-8">
-            <Link href="/marketplace" className="text-gray-400 hover:text-white transition">Marketplace</Link>
-            <Link href="/docs" className="text-gray-400 hover:text-white transition">Docs</Link>
-            <Link href="/demo" className="text-white font-medium">Live Demo</Link>
-            <Link href="/provider" className="text-gray-400 hover:text-white transition">Provider Dashboard</Link>
-          </nav>
         </div>
-      </header>
 
-      <div className="pt-24 pb-10 px-6">
-        <div className="max-w-7xl mx-auto">
-          <Link href="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-8">
-            <ArrowLeft className="w-4 h-4" />
-            Back to Home
-          </Link>
+        <div className="mt-6 mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Live Demo</h1>
+          <p className="mt-2 text-gray-500">
+            Watch x402 micropayments settle on Stellar in real time.
+          </p>
+        </div>
 
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold mb-3">Live Demo</h1>
-            <p className="text-gray-400">Watch x402 payments happen in real-time on Stellar</p>
-          </div>
-
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Left Panel - Wallet */}
-            <div className="card p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <Wallet className="w-5 h-5 text-[#6366f1]" />
-                  <h2 className="font-semibold">Demo Wallet</h2>
-                </div>
-                <button 
-                  onClick={fetchWalletBalance}
-                  className="p-1 hover:bg-[#1f2937] rounded transition"
-                  title="Refresh balance"
-                >
-                  <RefreshCw className={`w-4 h-4 text-gray-400 ${walletLoading ? 'animate-spin' : ''}`} />
-                </button>
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Wallet panel */}
+          <div className="card p-6">
+            <div className="mb-5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-indigo-600" />
+                <h2 className="font-semibold text-gray-900">Demo Wallet</h2>
               </div>
-              
-              {walletError ? (
-                <div className="text-red-400 text-sm flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4" />
-                  {walletError}
-                </div>
-              ) : walletLoading && !wallet ? (
-                <div className="text-gray-500 text-sm">Loading wallet...</div>
-              ) : wallet ? (
-                <>
-                  <div className="mb-6">
-                    <div className="text-xs text-gray-500 mb-1">Public Key</div>
-                    <div className="font-mono text-sm text-gray-300 break-all">
-                      {wallet.publicKey.slice(0, 10)}...{wallet.publicKey.slice(-6)}
-                    </div>
-                    <a 
-                      href={getExplorerAccountUrl(wallet.network, wallet.publicKey)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-[#6366f1] hover:underline flex items-center gap-1 mt-1"
-                    >
-                      View on Stellar Expert <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="bg-[#1f2937] rounded-lg p-4">
-                      <div className="text-xs text-gray-500 mb-1">XLM</div>
-                      <div className="text-xl font-semibold">{wallet.xlm}</div>
-                    </div>
-                    <div className="bg-[#1f2937] rounded-lg p-4">
-                      <div className="text-xs text-gray-500 mb-1">USDC</div>
-                      <div className="text-xl font-semibold text-green-400">
-                        ${wallet.usdc}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-[#1f2937] rounded-lg p-4">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Session Spent</span>
-                      <span className="text-yellow-400">${totalSpent.toFixed(4)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm mt-2">
-                      <span className="text-gray-400">Successful Calls</span>
-                      <span>{transactions.filter(t => t.status === 'success').length}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                    <div className="text-xs text-green-400 flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3" />
-                      Connected to Stellar {wallet.network}
-                    </div>
-                  </div>
-                </>
-              ) : null}
-            </div>
-
-            {/* Center Panel - API Call */}
-            <div className="card p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <Zap className="w-5 h-5 text-yellow-400" />
-                <h2 className="font-semibold">Call API</h2>
-              </div>
-
-              <div className="mb-6">
-                <label className="text-sm text-gray-400 mb-2 block">Select API</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {APIS.map(api => (
-                    <button
-                      key={api.id}
-                      onClick={() => setSelectedApi(api.id)}
-                      className={`p-4 rounded-lg text-left transition ${
-                        selectedApi === api.id
-                          ? 'bg-[#6366f1] border-2 border-[#818cf8]'
-                          : 'bg-[#1f2937] border-2 border-transparent hover:border-[#27272a]'
-                      }`}
-                    >
-                      <span className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg bg-[#0a0a0a] px-3 text-xs font-semibold tracking-[0.18em] text-gray-200">{api.icon}</span>
-                      <div className="font-medium mt-1">{api.name}</div>
-                      <div className="text-xs text-gray-400">${api.price.toFixed(3)}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <button
-                onClick={handleApiCall}
-                disabled={isLoading}
-                className="w-full py-4 bg-gradient-to-r from-[#6366f1] to-[#a855f7] rounded-lg font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition disabled:opacity-50"
+                onClick={fetchWallet}
+                title="Refresh"
+                className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
               >
-                {isLoading ? (
-                  <>
-                    <RefreshCw className="w-5 h-5 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-5 h-5" />
-                    Call {APIS.find(a => a.id === selectedApi)?.name} API
-                  </>
-                )}
+                <RefreshCw className={`h-4 w-4 ${walletLoading ? 'animate-spin' : ''}`} />
               </button>
-
-              <div className="mt-6 text-center text-sm text-gray-500">
-                This will send <span className="text-green-400">${APIS.find(a => a.id === selectedApi)?.price.toFixed(3)} USDC</span> via Stellar
-              </div>
             </div>
 
-            {/* Right Panel - Transaction Feed */}
-            <div className="card p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <Clock className="w-5 h-5 text-blue-400" />
-                <h2 className="font-semibold">Transaction Feed</h2>
-                <span className="ml-auto text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded">LIVE</span>
+            {walletError ? (
+              <div className="flex items-start gap-2 rounded-lg border border-red-100 bg-red-50 p-3">
+                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500" />
+                <p className="text-sm text-red-700">{walletError}</p>
               </div>
-
-              {transactions.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <p>No transactions yet.</p>
-                  <p className="text-sm mt-1">Click &quot;Call API&quot; to start!</p>
-                  <p className="text-xs mt-4 text-gray-600">Real USDC payments on Stellar</p>
+            ) : walletLoading && !wallet ? (
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading wallet…
+              </div>
+            ) : wallet ? (
+              <>
+                <div className="mb-5">
+                  <p className="mb-1 text-xs font-medium uppercase tracking-wider text-gray-400">
+                    Public Key
+                  </p>
+                  <p className="break-all font-mono text-xs text-gray-700">
+                    {wallet.publicKey.slice(0, 12)}…{wallet.publicKey.slice(-6)}
+                  </p>
+                  <a
+                    href={`https://stellar.expert/explorer/${wallet.network === 'mainnet' ? 'public' : 'testnet'}/account/${wallet.publicKey}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1 flex items-center gap-1 text-xs text-indigo-600 hover:underline"
+                  >
+                    View on Stellar Expert <ExternalLink className="h-3 w-3" />
+                  </a>
                 </div>
-              ) : (
-                <div className="space-y-4 max-h-[500px] overflow-y-auto">
-                  {transactions.map((tx) => (
-                    <div key={tx.id} className={`bg-[#1f2937] rounded-lg p-4 ${tx.status === 'error' ? 'border border-red-500/30' : ''}`}>
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          {tx.status === 'pending' && (
-                            <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
-                          )}
-                          {tx.status === 'confirmed' && (
-                            <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-                          )}
-                          {tx.status === 'success' && (
-                            <CheckCircle className="w-4 h-4 text-green-400" />
-                          )}
-                          {tx.status === 'error' && (
-                            <AlertCircle className="w-4 h-4 text-red-400" />
-                          )}
-                          <span className="font-medium">{tx.api}</span>
-                        </div>
-                        <span className={`text-sm font-mono ${tx.status === 'error' ? 'text-red-400' : 'text-green-400'}`}>
-                          {tx.status === 'error' ? 'FAILED' : `-$${tx.amount.toFixed(3)}`}
-                        </span>
-                      </div>
 
-                      <div className="text-xs text-gray-500 mb-2">
-                        {tx.timestamp.toLocaleTimeString()}
-                      </div>
-
-                      {tx.status === 'pending' && (
-                        <div className="text-xs text-yellow-400">Sending USDC payment...</div>
-                      )}
-                      {tx.status === 'confirmed' && tx.txHash && (
-                        <div className="text-xs">
-                          <span className="text-blue-400">TX confirmed: </span>
-                          <a 
-                            href={tx.explorerUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-[#6366f1] hover:underline font-mono"
-                          >
-                            {tx.txHash.slice(0, 8)}...
-                          </a>
-                        </div>
-                      )}
-                      {tx.status === 'success' && tx.data && (
-                        <>
-                          {tx.txHash && (
-                            <div className="text-xs mb-2">
-                              <a 
-                                href={tx.explorerUrl} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-[#6366f1] hover:underline flex items-center gap-1"
-                              >
-                                View on Stellar Expert <ExternalLink className="w-3 h-3" />
-                              </a>
-                            </div>
-                          )}
-                          <div className="mt-2 p-2 bg-[#0a0a0a] rounded text-xs font-mono overflow-x-auto">
-                            {JSON.stringify(tx.data, null, 2).slice(0, 200)}
-                          </div>
-                        </>
-                      )}
-                      {tx.status === 'error' && tx.error && (
-                        <div className="text-xs text-red-400 mt-1">{tx.error}</div>
-                      )}
-                    </div>
-                  ))}
+                <div className="mb-5 grid grid-cols-2 gap-3">
+                  <div className="rounded-lg bg-gray-50 p-3">
+                    <p className="mb-1 text-xs text-gray-400">XLM</p>
+                    <p className="text-lg font-semibold text-gray-900">{wallet.xlm}</p>
+                  </div>
+                  <div className="rounded-lg bg-emerald-50 p-3">
+                    <p className="mb-1 text-xs text-gray-400">USDC</p>
+                    <p className="text-lg font-semibold text-emerald-700">${wallet.usdc}</p>
+                  </div>
                 </div>
-              )}
-            </div>
+
+                <div className="rounded-lg bg-gray-50 p-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Session spent</span>
+                    <span className="font-semibold text-gray-900">${totalSpent.toFixed(4)}</span>
+                  </div>
+                  <div className="mt-1.5 flex justify-between">
+                    <span className="text-gray-500">Successful calls</span>
+                    <span className="font-semibold text-gray-900">
+                      {transactions.filter((t) => t.status === 'success').length}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <p className="text-xs font-medium text-emerald-800">
+                    Connected · Stellar {wallet.network}
+                  </p>
+                </div>
+              </>
+            ) : null}
           </div>
 
-          {/* x402 Flow Explanation */}
-          <div className="mt-10 card p-6">
-            <h3 className="font-semibold mb-4">x402 Payment Flow</h3>
-            <div className="grid md:grid-cols-4 gap-4 text-sm">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#6366f1] flex items-center justify-center text-sm font-bold shrink-0">1</div>
-                <div>
-                  <div className="font-medium">Request API</div>
-                  <div className="text-gray-500">GET /api/weather</div>
-                </div>
-              </div>
-                  <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#6366f1] flex items-center justify-center text-sm font-bold shrink-0">2</div>
-                <div>
-                  <div className="font-medium">Get 402</div>
-                  <div className="text-gray-500">Payment details in response body</div>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#6366f1] flex items-center justify-center text-sm font-bold shrink-0">3</div>
-                <div>
-                  <div className="font-medium">Pay via Stellar</div>
-                  <div className="text-gray-500">USDC payment ~3 sec</div>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-sm font-bold shrink-0">4</div>
-                <div>
-                  <div className="font-medium">Get Data</div>
-                  <div className="text-gray-500">Server verifies, returns data</div>
-                </div>
-              </div>
+          {/* API selector panel */}
+          <div className="card p-6">
+            <h2 className="mb-5 font-semibold text-gray-900">Select & Call API</h2>
+
+            <div className="mb-5 grid grid-cols-2 gap-2">
+              {APIS.map((api) => (
+                <button
+                  key={api.id}
+                  onClick={() => setSelected(api.id)}
+                  className={`rounded-xl p-4 text-left transition ${
+                    selected === api.id
+                      ? 'border-2 border-indigo-500 bg-indigo-50'
+                      : 'border border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-[10px] font-bold tracking-widest text-gray-600">
+                    {api.icon}
+                  </span>
+                  <p className="mt-2 text-sm font-semibold text-gray-900">{api.name}</p>
+                  <p className="text-xs text-gray-500">${api.price.toFixed(3)}/call</p>
+                </button>
+              ))}
             </div>
+
+            <button
+              onClick={handleCall}
+              disabled={loading}
+              className="w-full rounded-xl bg-indigo-600 py-3.5 font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Processing…
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <Send className="h-4 w-4" />
+                  Call {selectedApi.name} API
+                </span>
+              )}
+            </button>
+
+            <p className="mt-3 text-center text-xs text-gray-500">
+              Sends{' '}
+              <span className="font-semibold text-emerald-700">
+                ${selectedApi.price.toFixed(3)} USDC
+              </span>{' '}
+              on Stellar testnet
+            </p>
+          </div>
+
+          {/* Transaction feed */}
+          <div className="card p-6">
+            <div className="mb-5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-indigo-600" />
+                <h2 className="font-semibold text-gray-900">Transaction Feed</h2>
+              </div>
+              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                LIVE
+              </span>
+            </div>
+
+            {transactions.length === 0 ? (
+              <div className="py-12 text-center">
+                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+                  <Send className="h-5 w-5 text-gray-400" />
+                </div>
+                <p className="text-sm text-gray-500">No transactions yet.</p>
+                <p className="mt-1 text-xs text-gray-400">Click &ldquo;Call API&rdquo; to start</p>
+              </div>
+            ) : (
+              <div className="max-h-[480px] space-y-3 overflow-y-auto">
+                {transactions.map((tx) => (
+                  <div
+                    key={tx.id}
+                    className={`rounded-xl border p-4 ${
+                      tx.status === 'error'
+                        ? 'border-red-100 bg-red-50'
+                        : tx.status === 'success'
+                        ? 'border-emerald-100 bg-emerald-50'
+                        : 'border-gray-200 bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        {tx.status === 'pending' && (
+                          <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                        )}
+                        {tx.status === 'confirmed' && (
+                          <div className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+                        )}
+                        {tx.status === 'success' && (
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                        )}
+                        {tx.status === 'error' && (
+                          <AlertCircle className="h-4 w-4 text-red-500" />
+                        )}
+                        <span className="text-sm font-semibold text-gray-900">{tx.api}</span>
+                      </div>
+                      <span
+                        className={`flex-shrink-0 font-mono text-sm font-semibold ${
+                          tx.status === 'error' ? 'text-red-600' : 'text-emerald-700'
+                        }`}
+                      >
+                        {tx.status === 'error' ? 'FAILED' : `-$${tx.amount.toFixed(3)}`}
+                      </span>
+                    </div>
+
+                    <p className="mt-1 text-xs text-gray-400">{tx.timestamp.toLocaleTimeString()}</p>
+
+                    {tx.status === 'pending' && (
+                      <p className="mt-1.5 text-xs text-indigo-600">Sending USDC payment…</p>
+                    )}
+
+                    {(tx.status === 'confirmed' || tx.status === 'success') && tx.txHash && (
+                      <a
+                        href={tx.explorerUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1.5 flex items-center gap-1 text-xs text-indigo-600 hover:underline"
+                      >
+                        TX: {tx.txHash.slice(0, 10)}… <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+
+                    {tx.status === 'success' && tx.data && (
+                      <pre className="mt-2.5 overflow-x-auto rounded-lg bg-white p-3 text-xs text-gray-700 ring-1 ring-gray-200">
+                        {JSON.stringify(tx.data, null, 2).slice(0, 220)}
+                      </pre>
+                    )}
+
+                    {tx.status === 'error' && tx.error && (
+                      <p className="mt-1.5 text-xs text-red-600">{tx.error}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* x402 flow diagram */}
+        <div className="mt-8 card p-6">
+          <h3 className="mb-5 font-semibold text-gray-900">x402 Payment Flow</h3>
+          <div className="grid gap-6 md:grid-cols-4">
+            {[
+              { n: '1', title: 'Request API', desc: 'Agent calls GET /api/weather' },
+              { n: '2', title: 'Receive 402', desc: 'Server returns recipient, amount, memo' },
+              { n: '3', title: 'Pay via Stellar', desc: 'Demo wallet sends USDC (~3 sec)' },
+              { n: '4', title: 'Get Data', desc: 'Server verifies tx hash, returns data' },
+            ].map(({ n, title, desc }, i) => (
+              <div key={n} className="flex items-start gap-3">
+                <div
+                  className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${
+                    i === 3 ? 'bg-emerald-600' : 'bg-indigo-600'
+                  }`}
+                >
+                  {n}
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900">{title}</p>
+                  <p className="mt-0.5 text-sm text-gray-500">{desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
     </main>
-  );
+  )
 }

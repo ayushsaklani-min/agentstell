@@ -1,230 +1,344 @@
-'use client';
+'use client'
 
-import Link from 'next/link';
-import { Zap, Shield, Clock, DollarSign, Code, ArrowRight } from 'lucide-react';
+import Link from 'next/link'
+import { Nav } from '@/components/Nav'
+import {
+  ArrowRight,
+  CheckCircle2,
+  Code2,
+  DollarSign,
+  ShieldCheck,
+  Timer,
+  Zap,
+} from 'lucide-react'
 
 const APIS = [
-  { name: 'Weather', price: '$0.001', icon: 'WX', desc: 'Real-time weather data' },
-  { name: 'News', price: '$0.002', icon: 'NEWS', desc: 'Latest headlines' },
-  { name: 'AI', price: '$0.005', icon: 'AI', desc: 'GPT-4, Claude inference' },
-  { name: 'Currency', price: '$0.001', icon: 'FX', desc: 'Live exchange rates' },
-  { name: 'Geolocation', price: '$0.001', icon: 'GEO', desc: 'IP to location' },
-  { name: 'Air Quality', price: '$0.001', icon: 'AQ', desc: 'AQI & pollution data' },
-];
+  { name: 'Weather', price: '$0.001', icon: 'WX', desc: 'Real-time weather data for any city', slug: 'weather' },
+  { name: 'News', price: '$0.002', icon: 'NEWS', desc: 'Latest headlines by topic', slug: 'news' },
+  { name: 'AI Inference', price: '$0.005', icon: 'AI', desc: 'GPT-4 & Claude model queries', slug: 'ai' },
+  { name: 'Currency', price: '$0.001', icon: 'FX', desc: 'Live exchange rates', slug: 'currency' },
+  { name: 'Geolocation', price: '$0.001', icon: 'GEO', desc: 'IP address to location data', slug: 'geolocation' },
+  { name: 'Air Quality', price: '$0.001', icon: 'AQ', desc: 'AQI and pollution metrics', slug: 'air-quality' },
+]
 
 const FEATURES = [
   {
-    icon: <Zap className="w-6 h-6 text-yellow-400" />,
+    icon: Zap,
+    color: 'text-indigo-600',
+    bg: 'bg-indigo-50',
     title: 'Payment IS Authentication',
-    desc: 'No API keys, no accounts, no subscriptions. Just pay and use.',
+    desc: 'No API keys, no accounts. Pay per call in USDC and get instant access.',
   },
   {
-    icon: <Clock className="w-6 h-6 text-blue-400" />,
-    title: '3-Second Finality',
-    desc: 'Stellar blockchain settles payments in under 5 seconds.',
+    icon: Timer,
+    color: 'text-blue-600',
+    bg: 'bg-blue-50',
+    title: '3-Second Settlement',
+    desc: 'Stellar blockchain finalises payments in under 5 seconds globally.',
   },
   {
-    icon: <DollarSign className="w-6 h-6 text-green-400" />,
-    title: 'Micropayments',
-    desc: 'Pay $0.001 per API call. Sub-cent fees make it viable.',
+    icon: DollarSign,
+    color: 'text-emerald-600',
+    bg: 'bg-emerald-50',
+    title: 'Sub-cent Micropayments',
+    desc: 'Pay as little as $0.001 per call. Viable pricing for AI agent workflows.',
   },
   {
-    icon: <Shield className="w-6 h-6 text-purple-400" />,
+    icon: ShieldCheck,
+    color: 'text-violet-600',
+    bg: 'bg-violet-50',
     title: 'On-Chain Budget Limits',
-    desc: 'Smart contracts enforce spending limits automatically.',
+    desc: 'Soroban smart contracts enforce spending caps so agents never overspend.',
   },
-];
+]
+
+const STEPS = [
+  { n: '1', title: 'Request API', desc: 'Agent calls any endpoint' },
+  { n: '2', title: 'Receive 402', desc: 'Server returns payment details' },
+  { n: '3', title: 'Pay via Stellar', desc: 'SDK pays USDC in ~3 seconds' },
+  { n: '4', title: 'Get Data', desc: 'Proof verified, data returned' },
+]
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen">
-      {/* Header */}
-      <header className="fixed top-0 w-full z-50 bg-[#0a0a0a]/80 backdrop-blur-lg border-b border-[#27272a]">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#1f2937] text-[10px] font-semibold tracking-[0.18em] text-white">AM</span>
-            <span className="font-bold text-xl">AgentMarket</span>
-          </Link>
-          <nav className="hidden md:flex items-center gap-8">
-            <Link href="/marketplace" className="text-gray-400 hover:text-white transition">Marketplace</Link>
-            <Link href="/docs" className="text-gray-400 hover:text-white transition">Docs</Link>
-            <Link href="/demo" className="text-gray-400 hover:text-white transition">Live Demo</Link>
-            <Link href="/provider" className="text-gray-400 hover:text-white transition">Provider Dashboard</Link>
-          </nav>
-          <div className="flex items-center gap-4">
-            <Link href="https://github.com" className="text-gray-400 hover:text-white">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-            </Link>
-            <Link href="/demo" className="btn-primary text-sm">
-              Try Demo
-            </Link>
-          </div>
-        </div>
-      </header>
+    <main className="min-h-screen bg-white">
+      <Nav />
 
-      {/* Hero Section */}
-      <section className="pt-32 pb-20 px-6">
-        <div className="max-w-5xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#1f2937] text-sm mb-8">
-            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-            Built on Stellar • x402 Protocol
+      {/* ── Hero ──────────────────────────────────────────── */}
+      <section className="px-6 pb-24 pt-32">
+        <div className="mx-auto max-w-5xl text-center">
+          {/* Pill badge */}
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50 px-4 py-1.5 text-sm text-indigo-700">
+            <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+            Built on Stellar · x402 Protocol · Testnet Live
           </div>
-          
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+
+          <h1 className="mb-5 text-5xl font-bold leading-tight tracking-tight text-gray-900 md:text-6xl lg:text-7xl">
             API Marketplace for{' '}
             <span className="gradient-text">AI Agents</span>
           </h1>
-          
-          <p className="text-xl text-gray-400 mb-10 max-w-2xl mx-auto">
-            The first marketplace where <strong className="text-white">payment IS authentication</strong>. 
-            No API keys. No subscriptions. Just pay-per-call with USDC.
+
+          <p className="mx-auto mb-10 max-w-2xl text-lg text-gray-500">
+            The first marketplace where{' '}
+            <strong className="font-semibold text-gray-900">payment IS authentication</strong>.
+            No API keys. No subscriptions. Agents pay per call with USDC on Stellar.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-            <Link href="/demo" className="btn-primary flex items-center justify-center gap-2">
-              <Zap className="w-5 h-5" />
+          <div className="mb-16 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link href="/demo" className="btn-primary px-6 py-3 text-base">
+              <Zap className="h-5 w-5" />
               Try Live Demo
             </Link>
-            <Link href="/marketplace" className="btn-secondary flex items-center justify-center gap-2">
+            <Link href="/marketplace" className="btn-secondary px-6 py-3 text-base">
               Browse APIs
-              <ArrowRight className="w-5 h-5" />
+              <ArrowRight className="h-5 w-5" />
             </Link>
-            <Link href="/provider" className="btn-secondary flex items-center justify-center gap-2">
+            <Link href="/provider" className="btn-secondary px-6 py-3 text-base">
               Launch Dashboard
             </Link>
           </div>
 
-          {/* Code Example */}
-          <div className="card p-6 text-left max-w-2xl mx-auto glow">
-            <div className="flex items-center gap-2 mb-4">
-              <Code className="w-5 h-5 text-gray-400" />
-              <span className="text-sm text-gray-400">Install & Use</span>
+          {/* Code snippet */}
+          <div className="mx-auto max-w-2xl overflow-hidden rounded-xl border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3">
+              <div className="flex gap-1.5">
+                <span className="h-3 w-3 rounded-full bg-red-400" />
+                <span className="h-3 w-3 rounded-full bg-yellow-400" />
+                <span className="h-3 w-3 rounded-full bg-green-400" />
+              </div>
+              <Code2 className="ml-2 h-4 w-4 text-gray-400" />
+              <span className="text-xs text-gray-500">Quick Start</span>
             </div>
-            <pre className="text-sm overflow-x-auto">
-              <code className="text-gray-300">
+            <pre className="overflow-x-auto bg-[#1e1e2e] px-5 py-5 text-left text-sm leading-relaxed text-[#cdd6f4]">
 {`npm install agstell-sdk
 
 import { AgentMarket } from 'agstell-sdk'
 
-const agent = new AgentMarket({ secretKey: '...' })
+const agent = new AgentMarket({ secretKey: process.env.STELLAR_KEY })
 
-// Get weather - automatically pays via Stellar
+// Pay-per-call — $0.001 USDC, settled on Stellar
 const weather = await agent.get('weather', { city: 'Tokyo' })
-// Cost: $0.001 USDC`}
-              </code>
+console.log(weather.data)  // { temp: 22, conditions: 'Sunny', ... }`}
             </pre>
           </div>
         </div>
       </section>
 
-      {/* How It Works */}
-      <section className="py-20 px-6 bg-[#111]">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-4">How x402 Works</h2>
-          <p className="text-gray-400 text-center mb-12 max-w-2xl mx-auto">
-            HTTP 402 &quot;Payment Required&quot; finally has a use case
-          </p>
-          
-          <div className="grid md:grid-cols-4 gap-6">
-            {[
-              { step: '1', title: 'Request API', desc: 'Agent calls any API endpoint' },
-              { step: '2', title: 'Get 402', desc: 'Server returns payment details' },
-              { step: '3', title: 'Pay USDC', desc: 'SDK pays via Stellar (~3 sec)' },
-              { step: '4', title: 'Get Data', desc: 'Server verifies & returns data' },
-            ].map((item) => (
-              <div key={item.step} className="card p-6 text-center">
-                <div className="w-12 h-12 rounded-full bg-[#6366f1] flex items-center justify-center text-xl font-bold mx-auto mb-4">
-                  {item.step}
+      {/* ── How It Works ──────────────────────────────────── */}
+      <section className="section-alt px-6 py-20">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-12 text-center">
+            <h2 className="text-3xl font-bold text-gray-900">How x402 Works</h2>
+            <p className="mt-3 text-gray-500">
+              HTTP 402 &ldquo;Payment Required&rdquo; — finally with a protocol.
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-4">
+            {STEPS.map((step, i) => (
+              <div key={step.n} className="relative">
+                {i < STEPS.length - 1 && (
+                  <div className="absolute right-0 top-6 hidden h-px w-1/2 translate-x-full bg-gray-200 md:block" />
+                )}
+                <div className="card p-6 text-center">
+                  <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-indigo-600 text-base font-bold text-white">
+                    {step.n}
+                  </div>
+                  <h3 className="mb-1.5 font-semibold text-gray-900">{step.title}</h3>
+                  <p className="text-sm text-gray-500">{step.desc}</p>
                 </div>
-                <h3 className="font-semibold mb-2">{item.title}</h3>
-                <p className="text-sm text-gray-400">{item.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Features */}
-      <section className="py-20 px-6">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">Why AgentMarket?</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {FEATURES.map((feature) => (
-              <div key={feature.title} className="card p-6">
-                <div className="mb-4">{feature.icon}</div>
-                <h3 className="font-semibold mb-2">{feature.title}</h3>
-                <p className="text-sm text-gray-400">{feature.desc}</p>
+      {/* ── Features ──────────────────────────────────────── */}
+      <section className="px-6 py-20">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-12 text-center">
+            <h2 className="text-3xl font-bold text-gray-900">Why AgentMarket?</h2>
+          </div>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {FEATURES.map(({ icon: Icon, color, bg, title, desc }) => (
+              <div key={title} className="card p-6">
+                <div className={`mb-4 inline-flex rounded-lg p-2.5 ${bg}`}>
+                  <Icon className={`h-5 w-5 ${color}`} />
+                </div>
+                <h3 className="mb-2 font-semibold text-gray-900">{title}</h3>
+                <p className="text-sm leading-relaxed text-gray-500">{desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* API Grid */}
-      <section className="py-20 px-6 bg-[#111]">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between mb-12">
+      {/* ── API Grid ──────────────────────────────────────── */}
+      <section className="section-alt px-6 py-20">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-10 flex items-end justify-between">
             <div>
-              <h2 className="text-3xl font-bold mb-2">Available APIs</h2>
-              <p className="text-gray-400">Pay-per-call pricing in USDC</p>
+              <h2 className="text-3xl font-bold text-gray-900">Available APIs</h2>
+              <p className="mt-2 text-gray-500">Pay-per-call pricing in USDC. No account needed.</p>
             </div>
-            <Link href="/marketplace" className="btn-secondary text-sm">
-              View All
+            <Link href="/marketplace" className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
+              View all →
             </Link>
           </div>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {APIS.map((api) => (
-              <Link key={api.name} href={`/marketplace/${api.name.toLowerCase()}`} className="card p-6 hover:border-[#6366f1] transition">
-                <div className="flex items-start justify-between mb-4">
-                  <span className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg bg-[#1f2937] px-3 text-xs font-semibold tracking-[0.18em] text-gray-200">{api.icon}</span>
-                  <span className="text-green-400 font-mono text-sm">{api.price}/call</span>
+              <Link
+                key={api.name}
+                href={`/marketplace/${api.slug}`}
+                className="card group flex flex-col p-5 transition hover:border-indigo-300 hover:shadow-md"
+              >
+                <div className="mb-4 flex items-center justify-between">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-[10px] font-bold tracking-widest text-gray-600">
+                    {api.icon}
+                  </span>
+                  <span className="rounded-md bg-emerald-50 px-2.5 py-1 font-mono text-xs font-semibold text-emerald-700">
+                    {api.price}/call
+                  </span>
                 </div>
-                <h3 className="font-semibold mb-1">{api.name}</h3>
-                <p className="text-sm text-gray-400">{api.desc}</p>
+                <h3 className="mb-1 font-semibold text-gray-900 group-hover:text-indigo-700">
+                  {api.name}
+                </h3>
+                <p className="text-sm text-gray-500">{api.desc}</p>
               </Link>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-20 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl font-bold mb-6">Ready to Build?</h2>
-          <p className="text-gray-400 mb-8 max-w-xl mx-auto">
-            Get started in minutes. Install the SDK, fund your wallet, and start making API calls.
+      {/* ── For Providers ─────────────────────────────────── */}
+      <section className="px-6 py-20">
+        <div className="mx-auto max-w-6xl">
+          <div className="grid gap-8 lg:grid-cols-2">
+            {/* Agents */}
+            <div className="card p-8">
+              <div className="mb-4 inline-flex rounded-lg bg-indigo-50 p-2.5">
+                <Zap className="h-5 w-5 text-indigo-600" />
+              </div>
+              <h2 className="mb-3 text-2xl font-bold text-gray-900">For AI Agents</h2>
+              <p className="mb-6 text-gray-500">
+                Install the SDK, fund a Stellar wallet with testnet USDC, and start calling APIs autonomously.
+                No sign-ups, no API key management.
+              </p>
+              <ul className="mb-8 space-y-2.5">
+                {[
+                  'Auto-pays 402 invoices via Stellar',
+                  'Budget limits prevent overspend',
+                  'Works headless — no browser needed',
+                ].map((item) => (
+                  <li key={item} className="flex items-center gap-2.5 text-sm text-gray-700">
+                    <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-500" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <div className="flex gap-3">
+                <Link href="/docs" className="btn-primary text-sm">
+                  Read the Docs
+                </Link>
+                <Link href="/demo" className="btn-secondary text-sm">
+                  Try Demo
+                </Link>
+              </div>
+            </div>
+
+            {/* Providers */}
+            <div className="card p-8">
+              <div className="mb-4 inline-flex rounded-lg bg-violet-50 p-2.5">
+                <DollarSign className="h-5 w-5 text-violet-600" />
+              </div>
+              <h2 className="mb-3 text-2xl font-bold text-gray-900">For API Providers</h2>
+              <p className="mb-6 text-gray-500">
+                Register your API, set a USDC price, and start earning. Payments land directly
+                in your Stellar wallet — no intermediaries, no monthly payouts.
+              </p>
+              <ul className="mb-8 space-y-2.5">
+                {[
+                  'Payments direct to your Stellar wallet',
+                  'Discoverable via agstell-sdk instantly',
+                  'Real-time dashboard with call analytics',
+                ].map((item) => (
+                  <li key={item} className="flex items-center gap-2.5 text-sm text-gray-700">
+                    <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-emerald-500" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/provider" className="btn-primary text-sm">
+                Launch Dashboard
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA ───────────────────────────────────────────── */}
+      <section className="section-alt px-6 py-20">
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="mb-4 text-3xl font-bold text-gray-900">Ready to build?</h2>
+          <p className="mb-8 text-gray-500">
+            Get started in minutes. Install the SDK, get testnet USDC, and make your first paid API call.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="https://www.npmjs.com/package/agstell-sdk" className="btn-primary">
+          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <a
+              href="https://www.npmjs.com/package/agstell-sdk"
+              target="_blank"
+              rel="noreferrer"
+              className="btn-primary px-6 py-3"
+            >
               npm install agstell-sdk
             </a>
-            <Link href="/docs" className="btn-secondary">
+            <Link href="/docs" className="btn-secondary px-6 py-3">
               Read Documentation
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-[#27272a] py-12 px-6">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[#1f2937] text-[10px] font-semibold tracking-[0.18em] text-white">AM</span>
-            <span className="font-bold">AgentMarket</span>
-            <span className="text-gray-500 text-sm ml-2">Built on Stellar</span>
+      {/* ── Footer ────────────────────────────────────────── */}
+      <footer className="border-t border-gray-200 bg-white px-6 py-12">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 md:flex-row">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-[9px] font-bold tracking-widest text-white">
+              AM
+            </span>
+            <span className="font-bold text-gray-900">AgentMarket</span>
+            <span className="text-sm text-gray-400">· Built on Stellar</span>
           </div>
-          <div className="flex items-center gap-6">
-            <Link href="https://github.com" className="text-gray-400 hover:text-white">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-            </Link>
-            <Link href="https://twitter.com" className="text-gray-400 hover:text-white">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-            </Link>
+
+          <nav className="flex items-center gap-6">
+            {[
+              { href: '/marketplace', label: 'Marketplace' },
+              { href: '/docs', label: 'Docs' },
+              { href: '/demo', label: 'Demo' },
+              { href: '/provider', label: 'Dashboard' },
+            ].map(({ href, label }) => (
+              <Link key={href} href={href} className="text-sm text-gray-500 hover:text-gray-900">
+                {label}
+              </Link>
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-4">
+            <a
+              href="https://github.com/agentmarket/agentmarket"
+              target="_blank"
+              rel="noreferrer"
+              className="text-gray-400 hover:text-gray-700"
+            >
+              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
+              </svg>
+            </a>
+            <p className="text-sm text-gray-400">© 2025 AgentMarket · MIT</p>
           </div>
-          <p className="text-gray-500 text-sm">© 2024 AgentMarket. MIT License.</p>
         </div>
       </footer>
     </main>
-  );
+  )
 }

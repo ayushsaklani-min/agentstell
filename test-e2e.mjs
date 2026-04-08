@@ -46,15 +46,21 @@ function summarizeError(error) {
 async function runCommand(command, args, options = {}) {
   const { cwd = ROOT_DIR, env = {} } = options
 
+  // On Windows, route through cmd /c so .cmd files run without shell:true
+  // (shell:true with an args array triggers DEP0190 due to unescaped concatenation)
+  const [spawnCmd, spawnArgs] =
+    process.platform === 'win32'
+      ? ['cmd', ['/c', command, ...args]]
+      : [command, args]
+
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+    const child = spawn(spawnCmd, spawnArgs, {
       cwd,
       env: {
         ...process.env,
         ...env,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: process.platform === 'win32',
     })
 
     let stdout = ''
@@ -134,19 +140,20 @@ async function createProviderWallet() {
 }
 
 async function startMarket(providerPublicKey) {
-  const child = spawn(
-    npmCommand(),
-    ['run', 'start', '--', '--hostname', HOST, '--port', String(PORT)],
-    {
-      cwd: MARKET_DIR,
-      env: {
-        ...process.env,
-        AGENTMARKET_WALLET_PUBLIC: providerPublicKey,
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
-      shell: process.platform === 'win32',
-    }
-  )
+  const npmArgs = ['run', 'start', '--', '--hostname', HOST, '--port', String(PORT)]
+  const [spawnCmd, spawnArgs] =
+    process.platform === 'win32'
+      ? ['cmd', ['/c', npmCommand(), ...npmArgs]]
+      : [npmCommand(), npmArgs]
+
+  const child = spawn(spawnCmd, spawnArgs, {
+    cwd: MARKET_DIR,
+    env: {
+      ...process.env,
+      AGENTMARKET_WALLET_PUBLIC: providerPublicKey,
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 
   let stdout = ''
   let stderr = ''

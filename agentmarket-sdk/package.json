@@ -1,6 +1,6 @@
 {
   "name": "agstell-sdk",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "SDK for AI agents to access APIs via x402 micropayments on Stellar. Payment is authentication.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -51,11 +51,13 @@
     "@stellar/stellar-sdk": "^13.1.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
     "tsup": "^8.3.0",
     "typescript": "^5.7.0",
-    "vitest": "^2.1.0",
-    "eslint": "^9.0.0"
+    "typescript-eslint": "^8.58.1",
+    "vitest": "^2.1.0"
   },
   "engines": {
     "node": ">=18.0.0"

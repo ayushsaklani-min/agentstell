@@ -34,16 +34,27 @@ model ApiListing {
   priceUsdc    Float
   endpoint     String
   method       String     @default("GET")
-  
+  contentType  String     @default("application/json")
+
+  // Capability spec — machine-readable contract for agents
+  requestSchema   String?   // JSON Schema for request body/params (stored as JSON string)
+  responseSchema  String?   // JSON Schema for response body (stored as JSON string)
+  exampleRequest  String?   // Example request payload (stored as JSON string)
+  exampleResponse String?   // Example response payload (stored as JSON string)
+  params          String?   // Param definitions array (stored as JSON string)
+  sideEffectLevel String    @default("read")  // read | write | financial | destructive
+  latencyHint     String    @default("fast")  // fast | medium | slow
+  idempotent      Boolean   @default(true)
+
   // Provider relationship
   provider     Provider   @relation(fields: [providerId], references: [id])
   providerId   String
-  
+
   // Stats
   totalCalls   Int        @default(0)
   successRate  Float      @default(100)
   avgLatencyMs Int        @default(0)
-  
+
   // Status
   isActive     Boolean    @default(true)
   isProxied    Boolean    @default(false)

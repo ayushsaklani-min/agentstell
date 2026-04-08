@@ -41,6 +41,29 @@ export interface BudgetStatus {
   callCount: number
 }
 
+// Capability spec — machine-readable contract for agents
+export type SideEffectLevel = 'read' | 'write' | 'financial' | 'destructive'
+export type LatencyHint = 'fast' | 'medium' | 'slow'
+
+export interface ParamSpec {
+  name: string
+  type: string
+  required: boolean
+  description: string
+}
+
+export interface CapabilitySpec {
+  contentType: string
+  params: ParamSpec[]
+  requestSchema: Record<string, unknown> | null
+  responseSchema: Record<string, unknown> | null
+  exampleRequest: Record<string, unknown>
+  exampleResponse: Record<string, unknown>
+  sideEffectLevel: SideEffectLevel
+  latencyHint: LatencyHint
+  idempotent: boolean
+}
+
 // API Registry
 export interface ApiInfo {
   id: string
@@ -55,9 +78,39 @@ export interface ApiInfo {
     name: string
     stellarAddress: string
   }
+  capabilitySpec?: CapabilitySpec
 }
 
 export type ApiCategory = string
+
+// Preflight result — what the agent sees before paying
+export interface PreflightResult {
+  slug: string
+  name: string
+  method: 'GET' | 'POST'
+  endpoint: string
+  priceUsdc: number
+  provider: { name: string; stellarAddress: string }
+  budgetAllowed: boolean
+  budgetReason?: string
+  capabilitySpec: CapabilitySpec | null
+  estimatedLatency: LatencyHint
+  sideEffects: SideEffectLevel
+  idempotent: boolean
+}
+
+// Canonical receipt — proof of a paid execution
+export interface ExecutionReceipt {
+  slug: string
+  txHash: string
+  network: NetworkType
+  providerAddress: string
+  amountUsdc: number
+  timestamp: Date
+  latencyMs: number
+  success: boolean
+  error?: string
+}
 
 // x402 Payment Protocol
 export interface PaymentRequired {
@@ -175,9 +228,22 @@ export interface AIResponse {
   finishReason: string
 }
 
-// Event types for logging/monitoring
+// Event types for logging/monitoring — full lifecycle
+export type SDKEventType =
+  | 'preflight'
+  | 'api_call'
+  | 'payment_required'
+  | 'payment_submitted'
+  | 'payment_confirmed'
+  | 'payment_proof_sent'
+  | 'retry_started'
+  | 'upstream_completed'
+  | 'payment_sent'
+  | 'error'
+  | 'budget_warning'
+
 export interface SDKEvent {
-  type: 'api_call' | 'payment_sent' | 'payment_confirmed' | 'error' | 'budget_warning'
+  type: SDKEventType
   timestamp: Date
   data: Record<string, unknown>
 }

@@ -116,8 +116,13 @@ async function executeListingRequest(
       ? await request.text()
       : undefined
 
+  const UPSTREAM_TIMEOUT_MS = 15000
+
   try {
     const upstreamUrl = buildUpstreamUrl(request, listing.endpoint)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS)
+
     const upstreamResponse = await fetch(upstreamUrl, {
       method: listing.method,
       headers: {
@@ -130,7 +135,8 @@ async function executeListingRequest(
           : {}),
       },
       body,
-    })
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeoutId))
 
     const responseBody = await upstreamResponse.text()
     const latencyMs = Date.now() - startedAt
@@ -164,23 +170,28 @@ async function executeListingRequest(
   } catch (error) {
     const latencyMs = Date.now() - startedAt
 
+    const isTimeout = error instanceof Error && error.name === 'AbortError'
+    const errorMessage = isTimeout
+      ? `Upstream request timed out after ${UPSTREAM_TIMEOUT_MS}ms`
+      : error instanceof Error
+        ? error.message
+        : 'Unknown upstream proxy error'
+
     await recordCall(listing, {
       callerAddress: verification.callerAddress || 'unknown',
       txHash: verification.txHash,
       amountUsdc: verification.amount || listing.priceUsdc,
       success: false,
       latencyMs,
-      errorMessage:
-        error instanceof Error ? error.message : 'Unknown upstream proxy error',
+      errorMessage,
     })
 
     return NextResponse.json(
       {
-        error: 'Provider API request failed',
-        details:
-          error instanceof Error ? error.message : 'Unknown upstream proxy error',
+        error: isTimeout ? 'Provider API timed out' : 'Provider API request failed',
+        details: errorMessage,
       },
-      { status: 502 }
+      { status: isTimeout ? 504 : 502 }
     )
   }
 }

@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
+import * as StellarSdk from '@stellar/stellar-sdk'
 import { getPrismaClient } from '@/lib/db'
 import { mapDbListing } from '@/lib/marketplace/catalog'
 
@@ -15,6 +16,68 @@ interface ProviderRegistrationRequest {
   category: string
   priceUsdc: number
   method?: string
+  // Capability spec fields
+  contentType?: string
+  requestSchema?: Record<string, unknown>
+  responseSchema?: Record<string, unknown>
+  exampleRequest?: Record<string, unknown>
+  exampleResponse?: Record<string, unknown>
+  params?: Array<{ name: string; type: string; required: boolean; description: string }>
+  sideEffectLevel?: 'read' | 'write' | 'financial' | 'destructive'
+  latencyHint?: 'fast' | 'medium' | 'slow'
+  idempotent?: boolean
+}
+
+const VALID_SIDE_EFFECTS = new Set(['read', 'write', 'financial', 'destructive'])
+const VALID_LATENCY_HINTS = new Set(['fast', 'medium', 'slow'])
+const ENDPOINT_PROBE_TIMEOUT_MS = 8000
+
+// Stellar network config for wallet readiness checks
+const STELLAR_NETWORK = (process.env.STELLAR_NETWORK || 'testnet') as 'testnet' | 'mainnet'
+const HORIZON_URLS = {
+  testnet: 'https://horizon-testnet.stellar.org',
+  mainnet: 'https://horizon.stellar.org',
+}
+const USDC_ISSUERS = {
+  testnet: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+  mainnet: 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN',
+}
+
+interface WalletReadiness {
+  exists: boolean
+  hasUsdcTrustline: boolean
+  error?: string
+}
+
+async function checkWalletReadiness(stellarAddress: string): Promise<WalletReadiness> {
+  const horizonUrl = HORIZON_URLS[STELLAR_NETWORK]
+  const usdcIssuer = USDC_ISSUERS[STELLAR_NETWORK]
+
+  try {
+    const res = await fetch(`${horizonUrl}/accounts/${stellarAddress}`, {
+      headers: { Accept: 'application/json' },
+    })
+
+    if (res.status === 404) {
+      return { exists: false, hasUsdcTrustline: false, error: `Stellar account ${stellarAddress.slice(0, 8)}… does not exist on ${STELLAR_NETWORK}. Fund it first.` }
+    }
+
+    if (!res.ok) {
+      return { exists: false, hasUsdcTrustline: false, error: `Horizon returned ${res.status} when checking account` }
+    }
+
+    const account = await res.json() as { balances: Array<{ asset_type: string; asset_code?: string; asset_issuer?: string }> }
+
+    const hasUsdc = account.balances.some(
+      (b) => b.asset_type === 'credit_alphanum4' && b.asset_code === 'USDC' && b.asset_issuer === usdcIssuer
+    )
+
+    return { exists: true, hasUsdcTrustline: hasUsdc, error: hasUsdc ? undefined : `Account exists but has no USDC trustline on ${STELLAR_NETWORK}. Add a trustline to USDC (issuer ${usdcIssuer.slice(0, 8)}…) before registering.` }
+  } catch (err) {
+    // Network issues shouldn't block registration — just warn
+    console.warn('Wallet readiness check failed (non-blocking):', err)
+    return { exists: true, hasUsdcTrustline: true }
+  }
 }
 
 const RESERVED_SLUGS = new Set([
@@ -65,6 +128,15 @@ function normalizeMethod(method?: string) {
   return normalized === 'POST' ? 'POST' : 'GET'
 }
 
+function isValidStellarAddress(address: string) {
+  try {
+    StellarSdk.Keypair.fromPublicKey(address)
+    return true
+  } catch {
+    return false
+  }
+}
+
 function isAllowedEndpoint(endpoint: string) {
   try {
     const url = new URL(endpoint)
@@ -80,6 +152,34 @@ function isAllowedEndpoint(endpoint: string) {
   } catch {
     return false
   }
+}
+
+async function probeEndpoint(endpoint: string, method: string): Promise<{ reachable: boolean; error?: string }> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), ENDPOINT_PROBE_TIMEOUT_MS)
+  try {
+    const res = await fetch(endpoint, {
+      method: method === 'POST' ? 'POST' : 'GET',
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'AgentMarket-Probe/1.0' },
+      signal: controller.signal,
+      ...(method === 'POST' ? { body: '{}' } : {}),
+    })
+    clearTimeout(timer)
+    // Any HTTP response means the endpoint is reachable (even 4xx/5xx)
+    if (res.status >= 200 && res.status < 600) return { reachable: true }
+    return { reachable: false, error: `Endpoint returned unexpected status ${res.status}` }
+  } catch (err) {
+    clearTimeout(timer)
+    if (controller.signal.aborted) {
+      return { reachable: false, error: `Endpoint did not respond within ${ENDPOINT_PROBE_TIMEOUT_MS / 1000}s` }
+    }
+    return { reachable: false, error: `Endpoint unreachable: ${err instanceof Error ? err.message : 'unknown error'}` }
+  }
+}
+
+function safeStringify(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined
+  try { return JSON.stringify(value) } catch { return undefined }
 }
 
 export const dynamic = 'force-dynamic'
@@ -101,8 +201,19 @@ export async function POST(request: NextRequest) {
       category,
       priceUsdc,
       method,
+      // Capability spec
+      contentType,
+      requestSchema,
+      responseSchema,
+      exampleRequest,
+      exampleResponse,
+      params,
+      sideEffectLevel,
+      latencyHint,
+      idempotent,
     } = body
 
+    // ── Required field validation ──
     if (
       !providerName ||
       !stellarAddress ||
@@ -125,6 +236,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (!isValidStellarAddress(stellarAddress)) {
+      return NextResponse.json(
+        { error: 'stellarAddress must be a valid Stellar public key (starts with G, 56 characters)' },
+        { status: 400 }
+      )
+    }
+
     if (!isAllowedEndpoint(endpoint)) {
       return NextResponse.json(
         {
@@ -135,6 +253,68 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ── Wallet readiness: account exists + USDC trustline ──
+    const wallet = await checkWalletReadiness(stellarAddress)
+    if (!wallet.exists) {
+      return NextResponse.json(
+        { error: wallet.error ?? 'Provider wallet does not exist on the Stellar network' },
+        { status: 422 }
+      )
+    }
+    if (!wallet.hasUsdcTrustline) {
+      return NextResponse.json(
+        { error: wallet.error ?? 'Provider wallet lacks a USDC trustline' },
+        { status: 422 }
+      )
+    }
+
+    // ── Capability spec validation ──
+    if (sideEffectLevel && !VALID_SIDE_EFFECTS.has(sideEffectLevel)) {
+      return NextResponse.json(
+        { error: `sideEffectLevel must be one of: read, write, financial, destructive` },
+        { status: 400 }
+      )
+    }
+
+    if (latencyHint && !VALID_LATENCY_HINTS.has(latencyHint)) {
+      return NextResponse.json(
+        { error: `latencyHint must be one of: fast, medium, slow` },
+        { status: 400 }
+      )
+    }
+
+    // ── Protocol-aware linting ──
+    const normalizedMethod = normalizeMethod(method)
+    const looksJsonRpc =
+      endpoint.toLowerCase().includes('jsonrpc') ||
+      endpoint.toLowerCase().includes('json-rpc') ||
+      (exampleRequest && 'jsonrpc' in exampleRequest)
+
+    if (looksJsonRpc) {
+      if (normalizedMethod !== 'POST') {
+        return NextResponse.json(
+          { error: 'JSON-RPC endpoints must use POST method' },
+          { status: 400 }
+        )
+      }
+      if (!exampleRequest || Object.keys(exampleRequest).length === 0) {
+        return NextResponse.json(
+          { error: 'JSON-RPC endpoints require a non-empty exampleRequest so agents can construct valid calls' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // ── Readiness gate: probe endpoint ──
+    const probe = await probeEndpoint(endpoint, normalizedMethod)
+    if (!probe.reachable) {
+      return NextResponse.json(
+        { error: `Endpoint readiness check failed: ${probe.error}` },
+        { status: 422 }
+      )
+    }
+
+    // ── Persist ──
     const provider = await prisma.provider.upsert({
       where: { stellarAddress },
       update: {
@@ -161,7 +341,16 @@ export async function POST(request: NextRequest) {
         category: normalizeCategory(category),
         priceUsdc,
         endpoint,
-        method: normalizeMethod(method),
+        method: normalizedMethod,
+        contentType: contentType || 'application/json',
+        requestSchema: safeStringify(requestSchema),
+        responseSchema: safeStringify(responseSchema),
+        exampleRequest: safeStringify(exampleRequest),
+        exampleResponse: safeStringify(exampleResponse),
+        params: safeStringify(params),
+        sideEffectLevel: sideEffectLevel || 'read',
+        latencyHint: latencyHint || 'fast',
+        idempotent: idempotent ?? true,
         providerId: provider.id,
         isActive: true,
         isFeatured: false,
