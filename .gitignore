@@ -36,6 +36,10 @@ AGENTS.md
 **/AGENTS.md
 .github/copilot-instructions.md
 
-# Rough notes
+# Rough notes and internal planning
 idea.txt.txt
 resources.txt
+IMPLEMENTATION_PLAN.md
+mock-server.js
+agentmarket/README.md
+web/README.md
