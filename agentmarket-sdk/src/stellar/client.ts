@@ -177,6 +177,73 @@ export class StellarClient {
     }
   }
 
+  /** Send payment in XLM, provider receives exact USDC via Stellar DEX path conversion */
+  async sendPathPayment(
+    destination: string,
+    destAmountUsdc: string,
+    memo?: string
+  ): Promise<TransactionResult> {
+    if (!this.keypair) {
+      return { success: false, error: 'No secret key configured - cannot send payments' }
+    }
+
+    try {
+      // Find XLM → USDC conversion path via Stellar DEX
+      const pathResult = await this.server
+        .strictReceivePaths(
+          [StellarSdk.Asset.native()],
+          this.usdcAsset,
+          destAmountUsdc
+        )
+        .call()
+
+      if (!pathResult.records || pathResult.records.length === 0) {
+        return { success: false, error: 'No XLM→USDC path available on DEX' }
+      }
+
+      // 2% slippage buffer on XLM sendMax
+      const xlmNeeded = parseFloat(pathResult.records[0].source_amount)
+      const sendMax = (xlmNeeded * 1.02).toFixed(7)
+
+      const sourceAccount = await this.server.loadAccount(this.keypair.publicKey())
+
+      const transactionBuilder = new StellarSdk.TransactionBuilder(sourceAccount, {
+        fee: StellarSdk.BASE_FEE,
+        networkPassphrase: this.config.networkPassphrase,
+      })
+        .addOperation(
+          StellarSdk.Operation.pathPaymentStrictReceive({
+            sendAsset: StellarSdk.Asset.native(),
+            sendMax,
+            destination,
+            destAsset: this.usdcAsset,
+            destAmount: destAmountUsdc,
+            path: [],
+          })
+        )
+        .setTimeout(30)
+
+      if (memo) {
+        transactionBuilder.addMemo(StellarSdk.Memo.text(memo.slice(0, 28)))
+      }
+
+      const transaction = transactionBuilder.build()
+      transaction.sign(this.keypair)
+      const result = await this.server.submitTransaction(transaction)
+
+      return {
+        success: true,
+        txHash: result.hash,
+        ledger: result.ledger,
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: extractHorizonError(error),
+      }
+    }
+  }
+
   /** Verify a payment transaction */
   async verifyPayment(
     txHash: string,
