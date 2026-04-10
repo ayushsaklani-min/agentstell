@@ -100,7 +100,9 @@ function toApiInfo(entry: DiscoverEntry): ApiInfo {
 export async function refreshRegistry(marketplaceUrl: string): Promise<void> {
   const cached = readRegistryCache()
   if (cached && Date.now() - cached.cachedAt < REGISTRY_TTL_MS) {
-    _registry = cached.apis
+    if (Array.isArray(cached.apis) && cached.apis.length > 0) {
+      _registry = cached.apis
+    }
     return
   }
 

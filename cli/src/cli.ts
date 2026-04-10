@@ -416,7 +416,9 @@ program
 program
   .command('info <api>')
   .description('Get detailed information about an API')
-  .action((apiSlug) => {
+  .action(async (apiSlug) => {
+    const config = loadConfig();
+    await refreshRegistry(config.marketplaceUrl);
     const api = getApiInfo(apiSlug);
     
     if (!api) {
