@@ -5,7 +5,8 @@ import { StellarClient } from './client'
 describe('StellarClient.sendPathPayment', () => {
   it('returns error when no keypair configured', async () => {
     const client = new StellarClient('testnet') // no secret key
-    const result = await client.sendPathPayment('GDEST', '0.001')
+    const destKey = StellarSdk.Keypair.random().publicKey()
+    const result = await client.sendPathPayment(destKey, '0.001')
     expect(result.success).toBe(false)
     expect(result.error).toContain('No secret key configured')
   })
@@ -17,8 +18,9 @@ describe('StellarClient.sendPathPayment', () => {
       strictReceivePaths: vi.fn().mockReturnValue({
         call: vi.fn().mockResolvedValue({ records: [] }),
       }),
+      loadAccount: vi.fn(),
     }
-    const result = await client.sendPathPayment('GDEST', '0.001')
+    const result = await client.sendPathPayment(StellarSdk.Keypair.random().publicKey(), '0.001')
     expect(result.success).toBe(false)
     expect(result.error).toBe('No XLM→USDC path available on DEX')
   })
@@ -47,7 +49,7 @@ describe('StellarClient.sendPathPayment', () => {
     const submittedTx = submitMock.mock.calls[0][0] as StellarSdk.Transaction
     const op = submittedTx.operations[0] as StellarSdk.Operation.PathPaymentStrictReceive
     expect(op.type).toBe('pathPaymentStrictReceive')
-    expect(parseFloat(op.sendMax)).toBeCloseTo(1.02, 5)
-    expect(parseFloat(op.destAmount)).toBeCloseTo(0.001, 7)
+    expect(op.sendMax).toBe('1.0200000')
+    expect(op.destAmount).toBe('0.0010000')
   })
 })

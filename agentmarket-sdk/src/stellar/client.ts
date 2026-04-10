@@ -201,9 +201,10 @@ export class StellarClient {
         return { success: false, error: 'No XLM→USDC path available on DEX' }
       }
 
-      // 2% slippage buffer on XLM sendMax
-      const xlmNeeded = parseFloat(pathResult.records[0].source_amount)
-      const sendMax = (xlmNeeded * 1.02).toFixed(7)
+      // 2% slippage buffer on XLM sendMax — stroop arithmetic avoids IEEE 754 drift
+      const xlmStroops = Math.round(parseFloat(pathResult.records[0].source_amount) * 1e7)
+      const sendMaxStroops = Math.ceil(xlmStroops * 1.02)
+      const sendMax = (sendMaxStroops / 1e7).toFixed(7)
 
       const sourceAccount = await this.server.loadAccount(this.keypair.publicKey())
 
