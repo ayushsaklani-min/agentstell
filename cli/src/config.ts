@@ -10,6 +10,32 @@ import { Config } from './types';
 const CONFIG_DIR = path.join(os.homedir(), '.agentmarket');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 const HISTORY_FILE = path.join(CONFIG_DIR, 'history.json');
+const REGISTRY_CACHE_FILE = path.join(CONFIG_DIR, 'registry.json');
+
+export interface RegistryCache {
+  cachedAt: number;
+  apis: import('./types').ApiInfo[];
+}
+
+export function readRegistryCache(): RegistryCache | null {
+  try {
+    if (!fs.existsSync(REGISTRY_CACHE_FILE)) return null;
+    const data = fs.readFileSync(REGISTRY_CACHE_FILE, 'utf-8');
+    return JSON.parse(data) as RegistryCache;
+  } catch {
+    return null;
+  }
+}
+
+export function writeRegistryCache(apis: import('./types').ApiInfo[]): void {
+  try {
+    ensureConfigDir();
+    const cache: RegistryCache = { cachedAt: Date.now(), apis };
+    fs.writeFileSync(REGISTRY_CACHE_FILE, JSON.stringify(cache, null, 2));
+  } catch {
+    // Cache write failure is non-fatal — silently ignore
+  }
+}
 
 // Deployed Contract IDs
 export const CONTRACTS = {
