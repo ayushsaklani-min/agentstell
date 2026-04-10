@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic'
 
 interface AgentEntry {
   slug: string
+  entityType: 'api' | 'agent'
   name: string
   description: string
   category: string
@@ -38,6 +39,7 @@ function toAgentEntry(listing: MarketplaceListing): AgentEntry {
   const spec = listing.capabilitySpec
   return {
     slug: listing.slug,
+    entityType: listing.category === 'Agent' ? 'agent' : 'api',
     name: listing.name,
     description: listing.description,
     category: listing.category,
