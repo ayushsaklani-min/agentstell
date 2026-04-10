@@ -28,13 +28,15 @@ interface PaymentRequest {
   amount: string;
   memo?: string;
   network?: NetworkType;
+  currency?: 'USDC' | 'XLM';
 }
 
 function getDemoWalletConfig(): { secretKey: string | undefined; network: NetworkType } {
-  const network = process.env.DEMO_WALLET_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
+  const configuredNetwork = process.env.DEMO_WALLET_NETWORK?.trim();
+  const network = configuredNetwork === 'mainnet' ? 'mainnet' : 'testnet';
 
   return {
-    secretKey: process.env.DEMO_WALLET_SECRET_KEY,
+    secretKey: process.env.DEMO_WALLET_SECRET_KEY?.trim() || undefined,
     network,
   };
 }
@@ -63,7 +65,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body: PaymentRequest = await request.json();
-    const { recipient, amount, memo, network } = body;
+    const { recipient, amount, memo, network, currency } = body;
 
     if (!recipient || !amount) {
       return NextResponse.json(
@@ -82,6 +84,72 @@ export async function POST(request: NextRequest) {
     const activeNetwork = configuredNetwork;
     const server = new StellarSdk.Horizon.Server(NETWORKS[activeNetwork].horizonUrl);
     const keypair = StellarSdk.Keypair.fromSecret(secretKey);
+
+    if (currency === 'XLM') {
+      // XLM → USDC path payment via Stellar DEX
+      const pathResult = await server
+        .strictReceivePaths(
+          [StellarSdk.Asset.native()],
+          getUsdcAsset(activeNetwork),
+          amount
+        )
+        .call();
+
+      if (!pathResult.records || pathResult.records.length === 0) {
+        return NextResponse.json(
+          { error: 'No XLM→USDC conversion path available on Stellar DEX' },
+          { status: 500 }
+        );
+      }
+
+      const xlmNeeded = parseFloat(pathResult.records[0].source_amount);
+      const sendMax = (xlmNeeded * 1.02).toFixed(7);
+      const account = await server.loadAccount(keypair.publicKey());
+
+      const txBuilder = new StellarSdk.TransactionBuilder(account, {
+        fee: StellarSdk.BASE_FEE,
+        networkPassphrase: NETWORKS[activeNetwork].networkPassphrase,
+      }).addOperation(
+        StellarSdk.Operation.pathPaymentStrictReceive({
+          sendAsset: StellarSdk.Asset.native(),
+          sendMax,
+          destination: recipient,
+          destAsset: getUsdcAsset(activeNetwork),
+          destAmount: amount,
+          path: [],
+        })
+      );
+
+      if (memo) {
+        txBuilder.addMemo(StellarSdk.Memo.text(memo.slice(0, 28)));
+      }
+
+      const transaction = txBuilder.setTimeout(30).build();
+      transaction.sign(keypair);
+      const result = await server.submitTransaction(transaction);
+
+      const proof = {
+        txHash: result.hash,
+        network: activeNetwork,
+        timestamp: Date.now(),
+      };
+
+      return NextResponse.json({
+        success: true,
+        txHash: result.hash,
+        ledger: result.ledger,
+        amount,
+        recipient,
+        network: activeNetwork,
+        currency: 'XLM',
+        xlmSendMax: sendMax,
+        proof,
+        proofHeader: JSON.stringify(proof),
+        explorerUrl: getExplorerUrl(activeNetwork, result.hash),
+      });
+    }
+
+    // Default: USDC direct payment
     const account = await server.loadAccount(keypair.publicKey());
 
     const transactionBuilder = new StellarSdk.TransactionBuilder(account, {
