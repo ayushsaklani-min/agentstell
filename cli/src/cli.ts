@@ -15,7 +15,7 @@ import * as dotenv from 'dotenv';
 
 import { loadConfig, saveConfig, getConfigPath, loadHistory } from './config';
 import { StellarClient } from './stellar';
-import { listApis, getApiInfo, callApi } from './api';
+import { listApis, getApiInfo, callApi, refreshRegistry } from './api';
 
 dotenv.config();
 
@@ -202,7 +202,9 @@ program
   .alias('ls')
   .description('List available APIs')
   .option('-c, --category <category>', 'Filter by category (Data, Finance, Geo, AI)')
-  .action((options) => {
+  .action(async (options) => {
+    const config = loadConfig();
+    await refreshRegistry(config.marketplaceUrl);
     const apis = listApis(options.category);
 
     console.log(chalk.bold('\nAvailable APIs\n'));
@@ -251,7 +253,8 @@ program
   .option('--dry-run', 'Show what would be called without making payment')
   .action(async (apiSlug, options) => {
     const config = loadConfig();
-    
+    await refreshRegistry(config.marketplaceUrl);
+
     if (!config.secretKey) {
       console.log(chalk.red('Not initialized. Run: agentmarket init'));
       process.exit(1);
