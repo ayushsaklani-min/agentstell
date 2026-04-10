@@ -14,7 +14,7 @@ vi.mock('./config', () => ({
   writeRegistryCache,
 }));
 
-import { callApi, getApiInfo, listApis, refreshRegistry } from './api';
+import { callApi, getApiInfo, listApis, refreshRegistry, _resetRegistryForTesting } from './api';
 
 describe('CLI API client', () => {
   beforeEach(() => {
@@ -136,6 +136,7 @@ describe('CLI API client', () => {
 
 describe('refreshRegistry', () => {
   beforeEach(() => {
+    _resetRegistryForTesting();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     readRegistryCache.mockReset();

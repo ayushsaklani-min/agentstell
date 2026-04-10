@@ -106,23 +106,21 @@ export async function refreshRegistry(marketplaceUrl: string): Promise<void> {
 
   try {
     const res = await fetch(`${marketplaceUrl}/api/agents/discover`)
-    if (!res.ok) {
-      _registry = [...FALLBACK_REGISTRY]
-      return
-    }
+    if (!res.ok) return  // leave _registry unchanged
     const body = await res.json() as { apis?: DiscoverEntry[] }
-    if (!Array.isArray(body.apis) || body.apis.length === 0) {
-      _registry = [...FALLBACK_REGISTRY]
-      return
-    }
+    if (!Array.isArray(body.apis) || body.apis.length === 0) return  // leave _registry unchanged
 
     const fresh = body.apis.map(toApiInfo)
     writeRegistryCache(fresh)
     _registry = fresh
   } catch {
-    // Network error — reset to fallback
-    _registry = [...FALLBACK_REGISTRY]
+    // Network error — leave _registry unchanged
   }
+}
+
+// Only for testing: reset _registry to the static fallback
+export function _resetRegistryForTesting(): void {
+  _registry = [...FALLBACK_REGISTRY]
 }
 
 export function listApis(category?: string): ApiInfo[] {
