@@ -15,9 +15,11 @@ vi.mock('./config', () => ({
 }));
 
 import { callApi, getApiInfo, listApis, refreshRegistry, _resetRegistryForTesting } from './api';
+import type { StellarClient } from './stellar';
 
 describe('CLI API client', () => {
   beforeEach(() => {
+    _resetRegistryForTesting();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     appendHistory.mockReset();
@@ -49,7 +51,7 @@ describe('CLI API client', () => {
     const result = await callApi(
       'weather',
       { city: 'Mumbai' },
-      stellarClient as any
+      stellarClient as unknown as StellarClient
     );
 
     expect(result).toEqual({
@@ -100,7 +102,7 @@ describe('CLI API client', () => {
     const result = await callApi(
       'weather',
       { city: 'Mumbai' },
-      stellarClient as any
+      stellarClient as unknown as StellarClient
     );
 
     const secondHeaders = fetchMock.mock.calls[1]?.[1]?.headers as Record<

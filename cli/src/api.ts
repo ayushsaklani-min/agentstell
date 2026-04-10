@@ -80,7 +80,7 @@ interface DiscoverEntry {
   category: string
   price: { amount: number; asset: string }
   endpoint: string
-  method: string
+  method: 'GET' | 'POST'
   provider: { name: string; stellarAddress: string }
 }
 
@@ -92,7 +92,7 @@ function toApiInfo(entry: DiscoverEntry): ApiInfo {
     category: entry.category,
     priceUsdc: entry.price.amount,
     endpoint: entry.endpoint,
-    method: entry.method === 'POST' ? 'POST' : 'GET',
+    method: entry.method,
     provider: entry.provider.name,
   }
 }
