@@ -139,7 +139,7 @@ export async function verifyPayment(
     for (const op of operations.records) {
       if (op.type === 'payment') {
         const paymentOp = op as StellarSdk.Horizon.ServerApi.PaymentOperationRecord
-        
+
         if (
           paymentOp.to === recipient &&
           paymentOp.asset_code === usdc.code &&
@@ -148,7 +148,7 @@ export async function verifyPayment(
         ) {
           // Mark transaction as used
           usedTransactions.add(proof.txHash)
-          
+
           // Clean up old transactions periodically (simple approach)
           if (usedTransactions.size > 10000) {
             const iterator = usedTransactions.values()
@@ -163,6 +163,31 @@ export async function verifyPayment(
             callerAddress: paymentOp.from,
             network,
             amount: parseFloat(paymentOp.amount),
+          }
+        }
+      } else if (op.type === 'path_payment_strict_receive') {
+        const pathOp = op as StellarSdk.Horizon.ServerApi.PathPaymentOperationRecord
+        if (
+          pathOp.to === recipient &&
+          pathOp.asset_code === usdc.code &&
+          pathOp.asset_issuer === usdc.issuer &&
+          parseFloat(pathOp.amount) >= expectedAmount
+        ) {
+          usedTransactions.add(proof.txHash)
+
+          if (usedTransactions.size > 10000) {
+            const iterator = usedTransactions.values()
+            for (let i = 0; i < 5000; i++) {
+              usedTransactions.delete(iterator.next().value!)
+            }
+          }
+
+          return {
+            valid: true,
+            txHash: proof.txHash,
+            callerAddress: pathOp.from,
+            network,
+            amount: parseFloat(pathOp.amount),
           }
         }
       }
