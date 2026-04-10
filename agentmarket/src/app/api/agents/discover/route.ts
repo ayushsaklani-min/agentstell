@@ -1,16 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getFallbackCatalog, mapDbListing } from '@/lib/marketplace/catalog'
-import type { MarketplaceListing } from '@/lib/marketplace/catalog'
+import type { MarketplaceListing, MarketplaceParam } from '@/lib/marketplace/catalog'
 import { getPrismaClient } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
-
-interface AgentParam {
-  name: string
-  type: string
-  required: boolean
-  description: string
-}
 
 interface AgentEntry {
   slug: string
@@ -21,7 +14,7 @@ interface AgentEntry {
   endpoint: string
   method: 'GET' | 'POST'
   input: {
-    params: AgentParam[]
+    params: MarketplaceParam[]
     schema: Record<string, unknown> | null
     example: Record<string, unknown>
   }
