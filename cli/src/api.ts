@@ -2,12 +2,13 @@
  * AgentMarket CLI - API Client
  */
 
-import { loadConfig, appendHistory } from './config';
+import { loadConfig, appendHistory, readRegistryCache, writeRegistryCache } from './config';
 import { StellarClient } from './stellar';
 import { ApiInfo, CallResult } from './types';
 
-// Mock API registry (in production, fetch from marketplace)
-const API_REGISTRY: ApiInfo[] = [
+const REGISTRY_TTL_MS = 60 * 60 * 1000 // 1 hour
+
+const FALLBACK_REGISTRY: ApiInfo[] = [
   {
     name: 'Weather',
     slug: 'weather',
@@ -70,17 +71,71 @@ const API_REGISTRY: ApiInfo[] = [
   },
 ];
 
+let _registry: ApiInfo[] = [...FALLBACK_REGISTRY];
+
+interface DiscoverEntry {
+  slug: string
+  name: string
+  description: string
+  category: string
+  price: { amount: number; asset: string }
+  endpoint: string
+  method: string
+  provider: { name: string; stellarAddress: string }
+}
+
+function toApiInfo(entry: DiscoverEntry): ApiInfo {
+  return {
+    name: entry.name,
+    slug: entry.slug,
+    description: entry.description,
+    category: entry.category,
+    priceUsdc: entry.price.amount,
+    endpoint: entry.endpoint,
+    method: entry.method === 'POST' ? 'POST' : 'GET',
+    provider: entry.provider.name,
+  }
+}
+
+export async function refreshRegistry(marketplaceUrl: string): Promise<void> {
+  const cached = readRegistryCache()
+  if (cached && Date.now() - cached.cachedAt < REGISTRY_TTL_MS) {
+    _registry = cached.apis
+    return
+  }
+
+  try {
+    const res = await fetch(`${marketplaceUrl}/api/agents/discover`)
+    if (!res.ok) {
+      _registry = [...FALLBACK_REGISTRY]
+      return
+    }
+    const body = await res.json() as { apis?: DiscoverEntry[] }
+    if (!Array.isArray(body.apis) || body.apis.length === 0) {
+      _registry = [...FALLBACK_REGISTRY]
+      return
+    }
+
+    const fresh = body.apis.map(toApiInfo)
+    writeRegistryCache(fresh)
+    _registry = fresh
+  } catch {
+    // Network error — reset to fallback
+    _registry = [...FALLBACK_REGISTRY]
+  }
+}
+
 export function listApis(category?: string): ApiInfo[] {
   if (category) {
-    return API_REGISTRY.filter(
+    return _registry.filter(
       (api) => api.category.toLowerCase() === category.toLowerCase()
     );
   }
-  return API_REGISTRY;
+  return _registry;
 }
 
 export function getApiInfo(slug: string): ApiInfo | undefined {
-  return API_REGISTRY.find((api) => api.slug === slug);
+  return _registry.find((api) => api.slug === slug);
 }
 
 function buildRequest(
@@ -97,24 +152,14 @@ function buildRequest(
         url.searchParams.set(key, String(value));
       }
     }
-
-    return {
-      url: url.toString(),
-      init: {
-        method: 'GET',
-        headers,
-      },
-    };
+    return { url: url.toString(), init: { method: 'GET', headers } };
   }
 
   return {
     url: url.toString(),
     init: {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers,
-      },
+      headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify(params),
     },
   };
@@ -129,21 +174,14 @@ export async function callApi(
   const api = getApiInfo(slug);
 
   if (!api) {
-    return {
-      success: false,
-      error: `API not found: ${slug}`,
-    };
+    return { success: false, error: `API not found: ${slug}` };
   }
 
   const config = loadConfig();
 
-  // 1. Check wallet balance
   const wallet = await stellarClient.getWalletInfo();
   if (!wallet) {
-    return {
-      success: false,
-      error: 'Wallet not configured. Run: agentmarket init',
-    };
+    return { success: false, error: 'Wallet not configured. Run: agentmarket init' };
   }
 
   const usdcBalance = parseFloat(wallet.usdcBalance);
@@ -154,38 +192,29 @@ export async function callApi(
     };
   }
 
-  // 2. Make initial request (will get 402)
   const baseUrl = config.marketplaceUrl;
   const initialRequest = buildRequest(api, baseUrl, params);
 
   try {
     const initialResponse = await fetch(initialRequest.url, initialRequest.init);
 
-    // 3. If 402, make payment
     if (initialResponse.status === 402) {
       const paymentDetails = await initialResponse.json() as {
         payment?: { recipient?: string; amount?: string; memo?: string };
       };
 
       if (!paymentDetails.payment?.recipient || !paymentDetails.payment?.amount) {
-        return {
-          success: false,
-          error: 'Invalid 402 response: missing payment recipient or amount',
-        };
+        return { success: false, error: 'Invalid 402 response: missing payment recipient or amount' };
       }
 
       const recipient = paymentDetails.payment.recipient;
       const amount = paymentDetails.payment.amount;
       const memo = paymentDetails.payment?.memo || `am:${slug}:${Date.now()}`;
 
-      // Send USDC payment
       const paymentResult = await stellarClient.sendPayment(recipient, amount, memo);
-      
+
       if (!paymentResult?.success) {
-        return {
-          success: false,
-          error: 'Payment failed',
-        };
+        return { success: false, error: 'Payment failed' };
       }
 
       const paymentProof = JSON.stringify({
@@ -200,7 +229,6 @@ export async function callApi(
         'X-Payment-Network': config.stellarNetwork,
       });
 
-      // 4. Retry with payment proof
       const retryResponse = await fetch(retryRequest.url, retryRequest.init);
 
       if (!retryResponse.ok) {
@@ -215,7 +243,6 @@ export async function callApi(
       const data = await retryResponse.json();
       const latencyMs = Date.now() - startTime;
 
-      // Record in history
       appendHistory({
         api: slug,
         timestamp: new Date().toISOString(),
@@ -223,29 +250,15 @@ export async function callApi(
         txHash: paymentResult.txHash,
       });
 
-      return {
-        success: true,
-        data,
-        txHash: paymentResult.txHash,
-        amountPaid: api.priceUsdc,
-        latencyMs,
-      };
+      return { success: true, data, txHash: paymentResult.txHash, amountPaid: api.priceUsdc, latencyMs };
     }
 
-    // If not 402, API might be free or error
     if (initialResponse.ok) {
       const data = await initialResponse.json();
-      return {
-        success: true,
-        data,
-        latencyMs: Date.now() - startTime,
-      };
+      return { success: true, data, latencyMs: Date.now() - startTime };
     }
 
-    return {
-      success: false,
-      error: `Unexpected response: ${initialResponse.status}`,
-    };
+    return { success: false, error: `Unexpected response: ${initialResponse.status}` };
   } catch (error) {
     return {
       success: false,
