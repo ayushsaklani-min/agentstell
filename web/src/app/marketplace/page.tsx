@@ -96,9 +96,12 @@ export default function MarketplacePage() {
     if (apis.length === 0) return
     // initialise all to 'loading'
     setHealthMap(Object.fromEntries(apis.map((a) => [a.slug, 'loading'])))
-    // fire parallel health checks
+    // fire parallel health checks, with abort on cleanup
+    const controllers = new Map<string, AbortController>()
     for (const api of apis) {
-      fetch(`/api/health/${api.slug}`)
+      const controller = new AbortController()
+      controllers.set(api.slug, controller)
+      fetch(`/api/health/${api.slug}`, { signal: controller.signal })
         .then((r) => r.json())
         .then((data: { status?: string }) => {
           setHealthMap((prev) => ({
@@ -109,6 +112,11 @@ export default function MarketplacePage() {
         .catch(() => {
           setHealthMap((prev) => ({ ...prev, [api.slug]: 'unknown' }))
         })
+    }
+    return () => {
+      for (const controller of controllers.values()) {
+        controller.abort()
+      }
     }
   }, [apis])
 
