@@ -105,12 +105,21 @@ export default function WantedPage() {
   }
 
   const handleStatusChange = async (post: WantedPost, newStatus: string) => {
-    const res = await fetch(`/api/wanted/${post.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus, posterAddress }),
-    })
-    if (res.ok) void loadPosts(statusFilter)
+    try {
+      const res = await fetch(`/api/wanted/${post.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus, posterAddress }),
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        setSubmitError(body.error ?? 'Failed to update post')
+        return
+      }
+      void loadPosts(statusFilter)
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : 'Failed to update post')
+    }
   }
 
   return (
