@@ -59,7 +59,12 @@ model ApiListing {
   isActive     Boolean    @default(true)
   isProxied    Boolean    @default(false)
   isFeatured   Boolean    @default(false)
-  
+
+  // Health monitoring
+  healthStatus    String?
+  healthCheckedAt DateTime?
+  healthLatencyMs Int?
+
   // Timestamps
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
