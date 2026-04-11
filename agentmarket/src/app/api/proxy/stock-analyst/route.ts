@@ -15,7 +15,8 @@ const PRICE_USDC = 0.005
 
 const GEMINI_API_KEY =
   process.env.GEMINI_API_KEY ||
-  process.env.GOOGLE_API_KEY
+  process.env.GOOGLE_API_KEY ||
+  process.env.GEMINI_API_KEY_4
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
 const GEMINI_MODEL = 'gemini-2.5-flash-lite'
 
@@ -169,6 +170,11 @@ Respond ONLY with valid JSON in this exact format (no markdown, no explanation):
     )
 
     if (!res.ok) {
+      const errText = await res.text()
+      console.error(
+        `[stock-analyst] Gemini HTTP ${res.status} for ${symbol}:`,
+        errText.slice(0, 200)
+      )
       throw new Error(`Gemini API error: ${res.status}`)
     }
 
@@ -178,11 +184,23 @@ Respond ONLY with valid JSON in this exact format (no markdown, no explanation):
       .join('')
       .trim()
 
-    if (!rawText) throw new Error('Empty Gemini response')
+    if (!rawText) {
+      console.error(`[stock-analyst] Empty Gemini response for ${symbol}`)
+      throw new Error('Empty Gemini response')
+    }
 
     // Strip optional markdown fences before parsing
     const jsonText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-    const parsed = JSON.parse(jsonText) as { sentiment?: string; reason?: string }
+
+    let parsed: { sentiment?: string; reason?: string }
+    try {
+      parsed = JSON.parse(jsonText) as { sentiment?: string; reason?: string }
+    } catch (parseErr) {
+      console.error(
+        `[stock-analyst] JSON parse failed for ${symbol}. Raw text: ${rawText.slice(0, 150)}`
+      )
+      throw parseErr
+    }
 
     const validSentiments = new Set(['bullish', 'bearish', 'neutral'])
     const sentiment = validSentiments.has(parsed.sentiment ?? '')
@@ -195,8 +213,11 @@ Respond ONLY with valid JSON in this exact format (no markdown, no explanation):
       analysisBy: GEMINI_MODEL,
     }
   } catch (err) {
-    console.error('Gemini sentiment error:', err)
-    return { ...ruleBasedSentiment(changePercent), analysisBy: 'rule-based' }
+    console.error(
+      `[stock-analyst] Gemini fallback for ${symbol}:`,
+      err instanceof Error ? err.message : String(err)
+    )
+    return { ...ruleBasedSentiment(changePercent), analysisBy: 'gemini-fallback' }
   }
 }
 
@@ -239,9 +260,20 @@ async function stockAnalystHandler(
   }
 
   const price = meta.regularMarketPrice ?? 0
-  const previousClose = meta.previousClose ?? 0
+  let previousClose = meta.previousClose ?? 0
   const changePercent = meta.regularMarketChangePercent ?? 0
-  const change = price - previousClose
+
+  // Data quality check: if previousClose is missing/zero, derive from price and changePercent
+  if (previousClose === 0 && price > 0 && changePercent !== 0) {
+    previousClose = price / (1 + changePercent / 100)
+    console.warn(`[stock-analyst] ${symbol}: previousClose missing, derived from price and changePercent`)
+  }
+
+  // Calculate change: prefer derived previousClose, or use changePercent to compute
+  let change = price - previousClose
+  if (Math.abs(change) < 0.0001 && changePercent !== 0) {
+    change = price * (changePercent / 100)
+  }
 
   const { sentiment, reason, analysisBy } = await geminiSentiment(symbol, meta)
 
@@ -251,7 +283,7 @@ async function stockAnalystHandler(
     sentiment,
     reason,
     price,
-    previousClose,
+    previousClose: Math.round(previousClose * 10000) / 10000,
     change: Math.round(change * 10000) / 10000,
     changePercent: Math.round(changePercent * 10000) / 10000,
     volume: meta.regularMarketVolume ?? 0,
