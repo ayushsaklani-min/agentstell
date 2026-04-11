@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { Nav } from '@/components/Nav'
-import { AlertCircle, ArrowLeft, Filter, Loader2, Search, Zap } from 'lucide-react'
+import { AlertCircle, ArrowRight, Filter, Loader2, Search, Zap } from 'lucide-react'
 
 interface MarketplaceApi {
   id: string
@@ -24,7 +24,17 @@ interface MarketplaceStats {
   averagePriceUsdc: number
 }
 
-const CATEGORIES = ['All', 'Data', 'Finance', 'AI', 'Geo', 'Utilities', 'News', 'Weather']
+const CATEGORIES = ['All', 'Data', 'Finance', 'AI', 'Geo', 'Utilities', 'News', 'Weather', 'Agent']
+
+const CATEGORY_COLORS: Record<string, string> = {
+  AI: 'from-violet-50 to-purple-50 text-violet-600',
+  Finance: 'from-emerald-50 to-green-50 text-emerald-600',
+  Data: 'from-blue-50 to-sky-50 text-blue-600',
+  Geo: 'from-rose-50 to-pink-50 text-rose-600',
+  Weather: 'from-sky-50 to-cyan-50 text-sky-600',
+  News: 'from-orange-50 to-amber-50 text-orange-600',
+  Utilities: 'from-gray-50 to-slate-50 text-gray-600',
+}
 
 function fmtCompact(v: number) {
   return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(v)
@@ -60,53 +70,50 @@ export default function MarketplacePage() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return apis.filter((api) => {
-      const matchSearch =
-        api.name.toLowerCase().includes(q) || api.description.toLowerCase().includes(q)
+      const matchSearch = api.name.toLowerCase().includes(q) || api.description.toLowerCase().includes(q)
       const matchCat = category === 'All' || api.category === category
       return matchSearch && matchCat
     })
   }, [apis, search, category])
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-gray-50/60">
       <Nav />
 
-      <div className="mx-auto max-w-7xl px-6 pb-20 pt-24">
-        <div className="mt-4">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-gray-900"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Home
-          </Link>
-        </div>
-
-        {/* Page header */}
-        <div className="mt-6 mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">API Marketplace</h1>
-          <p className="mt-2 text-gray-500">
-            Pay-per-call APIs for AI agents. No subscriptions, no API keys.
-          </p>
-        </div>
-
-        {/* Stats */}
-        <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
-          {[
-            { label: 'Total APIs', value: stats ? String(stats.totalApis) : '—' },
-            { label: 'Total Calls', value: stats ? fmtCompact(stats.totalCalls) : '—' },
-            { label: 'Avg Price', value: stats ? `$${stats.averagePriceUsdc.toFixed(3)}` : '—' },
-            { label: 'Providers', value: stats ? String(stats.totalProviders) : '—' },
-          ].map((stat) => (
-            <div key={stat.label} className="card p-4 text-center">
-              <p className="text-xl font-bold text-indigo-600">{stat.value}</p>
-              <p className="mt-0.5 text-sm text-gray-500">{stat.label}</p>
+      {/* Hero header */}
+      <div className="border-b border-gray-200/80 bg-white">
+        <div className="mx-auto max-w-7xl px-6 pb-8 pt-28">
+          <div className="flex flex-col gap-1 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="mb-1.5 text-xs font-bold uppercase tracking-widest text-indigo-500">Marketplace</p>
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900 md:text-3xl">API Marketplace</h1>
+              <p className="mt-1.5 text-sm text-gray-500">Pay-per-call APIs for AI agents. No subscriptions. No API keys.</p>
             </div>
-          ))}
-        </div>
+            <Link href="/provider" className="hidden items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 md:flex">
+              <Zap className="h-4 w-4" /> Publish Your API
+            </Link>
+          </div>
 
+          {/* Stats row */}
+          <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+            {[
+              { label: 'Total APIs', value: stats ? String(stats.totalApis) : '—' },
+              { label: 'Total Calls', value: stats ? fmtCompact(stats.totalCalls) : '—' },
+              { label: 'Avg Price', value: stats ? `$${stats.averagePriceUsdc.toFixed(3)}` : '—' },
+              { label: 'Providers', value: stats ? String(stats.totalProviders) : '—' },
+            ].map(({ label, value }) => (
+              <div key={label} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                <p className="text-lg font-bold text-indigo-600">{value}</p>
+                <p className="text-xs text-gray-400">{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-7xl px-6 py-8">
         {/* Search + filter */}
-        <div className="mb-6 flex flex-col gap-4 md:flex-row">
+        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <input
@@ -114,19 +121,19 @@ export default function MarketplacePage() {
               placeholder="Search APIs…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/40"
+              className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             />
           </div>
-          <div className="flex items-center gap-2 overflow-x-auto">
+          <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
             <Filter className="h-4 w-4 flex-shrink-0 text-gray-400" />
             {CATEGORIES.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setCategory(cat)}
-                className={`whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-medium transition ${
+                className={`whitespace-nowrap rounded-lg px-3.5 py-2 text-xs font-semibold transition-all ${
                   category === cat
-                    ? 'bg-indigo-600 text-white'
-                    : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-gray-900'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'border border-gray-200 bg-white text-gray-600 hover:border-indigo-200 hover:text-indigo-600'
                 }`}
               >
                 {cat}
@@ -135,61 +142,83 @@ export default function MarketplacePage() {
           </div>
         </div>
 
-        {/* Content */}
+        {/* Results */}
         {loading ? (
-          <div className="flex items-center justify-center py-24">
-            <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
-            <span className="ml-3 text-gray-500">Loading marketplace…</span>
+          <div className="flex items-center justify-center py-32">
+            <div className="text-center">
+              <Loader2 className="mx-auto h-8 w-8 animate-spin text-indigo-500" />
+              <p className="mt-3 text-sm text-gray-400">Loading marketplace…</p>
+            </div>
           </div>
         ) : error ? (
-          <div className="flex items-center justify-center gap-3 py-20 text-red-600">
+          <div className="flex items-center justify-center gap-3 rounded-xl border border-red-100 bg-red-50 py-16 text-red-600">
             <AlertCircle className="h-5 w-5 flex-shrink-0" />
             <p className="text-sm">{error}</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="py-20 text-center">
-            <p className="text-gray-500">No APIs found matching your search.</p>
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100">
+              <Search className="h-6 w-6 text-gray-400" />
+            </div>
+            <p className="mt-4 text-sm font-medium text-gray-700">No APIs found</p>
+            <p className="mt-1 text-xs text-gray-400">Try adjusting your search or filter</p>
           </div>
         ) : (
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((api) => (
-              <div key={api.id} className="card flex flex-col p-5 transition hover:border-indigo-300 hover:shadow-md">
-                <div className="mb-4 flex items-start justify-between">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-[10px] font-bold tracking-widest text-gray-600">
-                    {api.icon}
-                  </span>
-                  <span className="rounded-md bg-emerald-50 px-2.5 py-1 font-mono text-xs font-semibold text-emerald-700">
-                    ${api.priceUsdc.toFixed(3)}
-                  </span>
-                </div>
+          <>
+            <p className="mb-4 text-xs text-gray-400">{filtered.length} API{filtered.length !== 1 ? 's' : ''} found</p>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((api) => {
+                const colorClass = CATEGORY_COLORS[api.category] ?? CATEGORY_COLORS.Utilities
+                const [gradPart, textPart] = colorClass.split(' ').reduce<[string, string]>(
+                  ([g, t], cls) => cls.startsWith('text-') ? [g, cls] : [`${g} ${cls}`.trim(), t],
+                  ['', '']
+                )
+                return (
+                  <div key={api.id} className="group flex flex-col rounded-2xl border border-gray-200/80 bg-white p-5 shadow-sm transition-all hover:border-indigo-200 hover:shadow-md">
+                    <div className="mb-4 flex items-start justify-between">
+                      <div className={`flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${gradPart}`}>
+                        <span className={`text-[10px] font-black tracking-widest ${textPart}`}>
+                          {api.icon || api.name.slice(0, 2).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-1 font-mono text-xs font-bold text-emerald-700">
+                          ${api.priceUsdc.toFixed(3)}/call
+                        </span>
+                      </div>
+                    </div>
 
-                <h3 className="mb-1 font-semibold text-gray-900">{api.name}</h3>
-                <p className="mb-4 line-clamp-2 flex-1 text-sm text-gray-500">{api.description}</p>
+                    <div className="mb-1 flex items-center gap-2">
+                      <h3 className="font-bold text-gray-900 group-hover:text-indigo-700 transition-colors">{api.name}</h3>
+                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">{api.category}</span>
+                    </div>
+                    <p className="mb-4 line-clamp-2 flex-1 text-sm leading-relaxed text-gray-500">{api.description}</p>
 
-                <div className="mb-4 flex items-center gap-3 text-xs text-gray-400">
-                  <span>{fmtCompact(api.totalCalls)} calls</span>
-                  <span>·</span>
-                  <span>{api.providerName}</span>
-                </div>
+                    <div className="mb-4 flex items-center gap-3 text-xs text-gray-400">
+                      <span className="font-medium">{fmtCompact(api.totalCalls)} calls</span>
+                      <span>·</span>
+                      <span className="truncate">{api.providerName}</span>
+                    </div>
 
-                <div className="flex gap-2">
-                  <Link
-                    href={`/demo?api=${api.slug}`}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 py-2 px-3 text-sm font-medium text-white transition hover:bg-indigo-500"
-                  >
-                    <Zap className="h-3.5 w-3.5" />
-                    Try Now
-                  </Link>
-                  <Link
-                    href={`/marketplace/${api.slug}`}
-                    className="flex flex-1 items-center justify-center rounded-lg border border-gray-200 py-2 px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-                  >
-                    Details
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
+                    <div className="flex gap-2">
+                      <Link
+                        href={`/demo?api=${api.slug}`}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 py-2.5 text-xs font-semibold text-white transition hover:bg-indigo-500"
+                      >
+                        <Zap className="h-3.5 w-3.5" /> Try Now
+                      </Link>
+                      <Link
+                        href={`/marketplace/${api.slug}`}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 hover:border-gray-300"
+                      >
+                        Details <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
         )}
       </div>
     </main>
