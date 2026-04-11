@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
 } from 'react'
@@ -709,6 +710,7 @@ function EarningsProofTab({ providerAddress }: { providerAddress: string }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fetchProof = useCallback(async (d: number) => {
     if (!providerAddress) return
@@ -730,6 +732,12 @@ function EarningsProofTab({ providerAddress }: { providerAddress: string }) {
 
   useEffect(() => { void fetchProof(days) }, [days, fetchProof])
 
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+    }
+  }, [])
+
   const handleDownload = () => {
     if (!proof) return
     const blob = new Blob([JSON.stringify(proof, null, 2)], { type: 'application/json' })
@@ -745,7 +753,8 @@ function EarningsProofTab({ providerAddress }: { providerAddress: string }) {
     const url = `${window.location.origin}/api/provider/earnings-proof?address=${encodeURIComponent(providerAddress)}&days=${days}`
     void navigator.clipboard.writeText(url).then(() => {
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+      copiedTimerRef.current = setTimeout(() => setCopied(false), 2000)
     })
   }
 
