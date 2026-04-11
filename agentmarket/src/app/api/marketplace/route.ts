@@ -27,14 +27,18 @@ export async function GET() {
       ],
     })
 
-    if (listings.length > 0) {
-      const apis = listings.map(mapDbListing)
-      return NextResponse.json({
-        apis,
-        stats: summarizeMarketplace(apis),
-        source: 'database',
-      })
-    }
+    const dbApis = listings.map(mapDbListing)
+    const dbSlugs = new Set(dbApis.map((a) => a.slug))
+
+    // Merge fallback catalog entries that aren't already in the DB
+    const fallbackExtras = getFallbackCatalog().filter((a) => !dbSlugs.has(a.slug))
+    const apis = [...dbApis, ...fallbackExtras]
+
+    return NextResponse.json({
+      apis,
+      stats: summarizeMarketplace(apis),
+      source: listings.length > 0 ? 'database+fallback' : 'fallback',
+    })
   } catch (error) {
     console.error('Failed to load marketplace from database:', error)
   }

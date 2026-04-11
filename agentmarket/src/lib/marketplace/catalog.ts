@@ -179,6 +179,48 @@ const FALLBACK_CATALOG: MarketplaceListing[] = [
   })(),
   (() => {
     const params: MarketplaceParam[] = [
+      { name: 'symbol', type: 'string', required: true, description: 'Stock ticker symbol, for example AAPL or TSLA.' },
+    ]
+    const exReq = { symbol: 'AAPL' }
+    const exRes = {
+      symbol: 'AAPL',
+      companyName: 'Apple Inc.',
+      sentiment: 'bullish',
+      reason: 'Strong momentum with 2.3% gain on high volume.',
+      price: 189.45,
+      previousClose: 185.20,
+      change: 4.25,
+      changePercent: 2.29,
+      volume: 78432100,
+      analysisBy: 'gemini-2.5-flash-lite',
+    }
+    return {
+      id: 'stock-analyst',
+      slug: 'stock-analyst',
+      name: 'Stock Analyst',
+      icon: 'STK',
+      description: 'AI-powered stock sentiment analysis with live market data.',
+      longDescription:
+        'Submit a stock ticker symbol and receive real-time price data combined with Gemini AI sentiment analysis. Returns bullish/bearish/neutral rating with a one-line reason. Ideal for trading agents that need fast, metered market intelligence.',
+      category: 'Finance',
+      priceUsdc: 0.005,
+      endpoint: '/api/proxy/stock-analyst',
+      method: 'GET' as const,
+      providerName: 'AgentMarket',
+      providerStellarAddress: DEFAULT_PROVIDER_ADDRESS,
+      totalCalls: 0,
+      successRate: 100,
+      avgLatencyMs: 1200,
+      isActive: true,
+      isFeatured: true,
+      params,
+      exampleRequest: exReq,
+      exampleResponse: exRes,
+      capabilitySpec: buildCapabilitySpec(params, exReq, exRes, { sideEffectLevel: 'read', latencyHint: 'slow', idempotent: true }),
+    }
+  })(),
+  (() => {
+    const params: MarketplaceParam[] = [
       { name: 'ip', type: 'string', required: false, description: 'IP address to look up. Defaults to requester IP.' },
     ]
     const exReq = { ip: '8.8.8.8' }

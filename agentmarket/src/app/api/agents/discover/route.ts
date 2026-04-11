@@ -81,9 +81,10 @@ export async function GET() {
       include: { provider: { select: { name: true, stellarAddress: true } } },
       orderBy: [{ isFeatured: 'desc' }, { totalCalls: 'desc' }],
     })
-    if (rows.length > 0) {
-      listings = rows.map(mapDbListing)
-    }
+    const dbListings = rows.map(mapDbListing)
+    const dbSlugs = new Set(dbListings.map((a) => a.slug))
+    const fallbackExtras = getFallbackCatalog().filter((a) => !dbSlugs.has(a.slug))
+    listings = [...dbListings, ...fallbackExtras]
   } catch {
     // DB unavailable — fall through to catalog
   }
