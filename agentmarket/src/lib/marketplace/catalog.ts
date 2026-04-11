@@ -93,9 +93,9 @@ const FALLBACK_CATALOG: MarketplaceListing[] = [
       method: 'GET' as const,
       providerName: 'AgentMarket',
       providerStellarAddress: DEFAULT_PROVIDER_ADDRESS,
-      totalCalls: 120,
+      totalCalls: 0,
       successRate: 100,
-      avgLatencyMs: 40,
+      avgLatencyMs: 0,
       isActive: true,
       isFeatured: false,
       params,
@@ -117,7 +117,7 @@ const FALLBACK_CATALOG: MarketplaceListing[] = [
       longDescription: 'Access real-time weather data for over 200,000 cities worldwide. Get temperature, humidity, wind speed, conditions, and more.',
       category: 'Data', priceUsdc: 0.001, endpoint: '/api/proxy/weather', method: 'GET' as const,
       providerName: 'AgentMarket', providerStellarAddress: DEFAULT_PROVIDER_ADDRESS,
-      totalCalls: 2400000, successRate: 99.9, avgLatencyMs: 120, isActive: true, isFeatured: true,
+      totalCalls: 0, successRate: 100, avgLatencyMs: 0, isActive: true, isFeatured: true,
       params, exampleRequest: exReq, exampleResponse: exRes,
       capabilitySpec: buildCapabilitySpec(params, exReq, exRes, { latencyHint: 'medium' }),
     }
@@ -135,7 +135,7 @@ const FALLBACK_CATALOG: MarketplaceListing[] = [
       longDescription: 'Get breaking headlines from global sources, filtered by topic and limit. Useful for research agents that need fresh context.',
       category: 'Data', priceUsdc: 0.002, endpoint: '/api/proxy/news', method: 'GET' as const,
       providerName: 'AgentMarket', providerStellarAddress: DEFAULT_PROVIDER_ADDRESS,
-      totalCalls: 1800000, successRate: 99.8, avgLatencyMs: 200, isActive: true, isFeatured: true,
+      totalCalls: 0, successRate: 100, avgLatencyMs: 0, isActive: true, isFeatured: true,
       params, exampleRequest: exReq, exampleResponse: exRes,
       capabilitySpec: buildCapabilitySpec(params, exReq, exRes, { latencyHint: 'medium' }),
     }
@@ -153,7 +153,7 @@ const FALLBACK_CATALOG: MarketplaceListing[] = [
       longDescription: 'Access AI model inference with a single x402 flow. Useful for agents that need lightweight, metered reasoning without subscriptions.',
       category: 'AI', priceUsdc: 0.005, endpoint: '/api/proxy/ai', method: 'POST' as const,
       providerName: 'AgentMarket', providerStellarAddress: DEFAULT_PROVIDER_ADDRESS,
-      totalCalls: 890000, successRate: 99.5, avgLatencyMs: 800, isActive: true, isFeatured: true,
+      totalCalls: 0, successRate: 100, avgLatencyMs: 0, isActive: true, isFeatured: true,
       params, exampleRequest: exReq, exampleResponse: exRes,
       capabilitySpec: buildCapabilitySpec(params, exReq, exRes, { sideEffectLevel: 'write', latencyHint: 'slow', idempotent: false }),
     }
@@ -172,7 +172,7 @@ const FALLBACK_CATALOG: MarketplaceListing[] = [
       longDescription: 'Fetch current FX rates and convert exact amounts. Useful for fintech agents and pricing workflows.',
       category: 'Finance', priceUsdc: 0.001, endpoint: '/api/proxy/currency', method: 'GET' as const,
       providerName: 'AgentMarket', providerStellarAddress: DEFAULT_PROVIDER_ADDRESS,
-      totalCalls: 3100000, successRate: 99.9, avgLatencyMs: 80, isActive: true, isFeatured: false,
+      totalCalls: 0, successRate: 100, avgLatencyMs: 0, isActive: true, isFeatured: false,
       params, exampleRequest: exReq, exampleResponse: exRes,
       capabilitySpec: buildCapabilitySpec(params, exReq, exRes),
     }
@@ -231,7 +231,7 @@ const FALLBACK_CATALOG: MarketplaceListing[] = [
       longDescription: 'Convert IP addresses into city, country, timezone, and network metadata for personalization or security workflows.',
       category: 'Geo', priceUsdc: 0.001, endpoint: '/api/proxy/geolocation', method: 'GET' as const,
       providerName: 'AgentMarket', providerStellarAddress: DEFAULT_PROVIDER_ADDRESS,
-      totalCalls: 1200000, successRate: 99.9, avgLatencyMs: 50, isActive: true, isFeatured: false,
+      totalCalls: 0, successRate: 100, avgLatencyMs: 0, isActive: true, isFeatured: false,
       params, exampleRequest: exReq, exampleResponse: exRes,
       capabilitySpec: buildCapabilitySpec(params, exReq, exRes),
     }
@@ -248,7 +248,7 @@ const FALLBACK_CATALOG: MarketplaceListing[] = [
       longDescription: 'Retrieve current air quality, AQI category, and basic pollutant breakdown for city-level environmental analysis.',
       category: 'Data', priceUsdc: 0.001, endpoint: '/api/proxy/air-quality', method: 'GET' as const,
       providerName: 'AgentMarket', providerStellarAddress: DEFAULT_PROVIDER_ADDRESS,
-      totalCalls: 670000, successRate: 99.7, avgLatencyMs: 150, isActive: true, isFeatured: false,
+      totalCalls: 0, successRate: 100, avgLatencyMs: 0, isActive: true, isFeatured: false,
       params, exampleRequest: exReq, exampleResponse: exRes,
       capabilitySpec: buildCapabilitySpec(params, exReq, exRes, { latencyHint: 'medium' }),
     }
