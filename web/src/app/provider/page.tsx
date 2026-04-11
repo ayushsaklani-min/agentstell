@@ -28,11 +28,12 @@ import {
   List,
   Settings,
   BarChart3,
+  FileText,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type ProviderTab = 'overview' | 'apis' | 'register' | 'calls' | 'settings'
+type ProviderTab = 'overview' | 'apis' | 'register' | 'calls' | 'settings' | 'earnings'
 
 interface ProviderDashboardData {
   provider: {
@@ -688,6 +689,195 @@ function SettingsTab({ dashboard }: { dashboard: ProviderDashboardData | null })
   )
 }
 
+// ─── Earnings Proof Tab ───────────────────────────────────────────────────────
+
+interface EarningsProof {
+  provider: string
+  generatedAt: string
+  periodDays: number
+  totalEarningsUsdc: number
+  callCount: number
+  successfulCalls: number
+  breakdown: { slug: string; calls: number; earningsUsdc: number }[]
+  transactions: { txHash: string; apiSlug: string; amountUsdc: number; timestamp: string; success: boolean }[]
+  stellarExplorerBase: string
+}
+
+function EarningsProofTab({ providerAddress }: { providerAddress: string }) {
+  const [days, setDays] = useState<7 | 30 | 90>(30)
+  const [proof, setProof] = useState<EarningsProof | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const fetchProof = useCallback(async (d: number) => {
+    if (!providerAddress) return
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(
+        `/api/provider/earnings-proof?address=${encodeURIComponent(providerAddress)}&days=${d}`
+      )
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error ?? 'Failed to load earnings proof')
+      setProof(body)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load earnings proof')
+    } finally {
+      setLoading(false)
+    }
+  }, [providerAddress])
+
+  useEffect(() => { void fetchProof(days) }, [days, fetchProof])
+
+  const handleDownload = () => {
+    if (!proof) return
+    const blob = new Blob([JSON.stringify(proof, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `earnings-proof-${providerAddress.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/api/provider/earnings-proof?address=${encodeURIComponent(providerAddress)}&days=${days}`
+    void navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  if (!providerAddress) {
+    return <EmptyState icon={FileText} title="No provider connected" body="Enter your Stellar address to view your earnings proof." />
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Header + period picker */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-900">Earnings Proof</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Verifiable record of on-chain payments received</p>
+        </div>
+        <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 gap-0.5">
+          {([7, 30, 90] as const).map((d) => (
+            <button
+              key={d}
+              onClick={() => setDays(d)}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                days === d ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {d}d
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <RefreshCw className="h-5 w-5 animate-spin text-indigo-400" />
+        </div>
+      ) : error ? (
+        <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-600">
+          {error}
+          <button onClick={() => fetchProof(days)} className="ml-3 text-xs font-medium underline">Retry</button>
+        </div>
+      ) : proof ? (
+        <>
+          {/* Summary stats */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="rounded-xl border border-gray-200/80 bg-white p-4 shadow-sm">
+              <p className="text-lg font-bold text-emerald-700">{fmt$(proof.totalEarningsUsdc)}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Total earned (USDC)</p>
+            </div>
+            <div className="rounded-xl border border-gray-200/80 bg-white p-4 shadow-sm">
+              <p className="text-lg font-bold text-gray-900">{proof.callCount}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Total calls</p>
+            </div>
+            <div className="rounded-xl border border-gray-200/80 bg-white p-4 shadow-sm">
+              <p className="text-lg font-bold text-gray-900">{proof.successfulCalls}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Successful calls</p>
+            </div>
+          </div>
+
+          {/* Breakdown table */}
+          {proof.breakdown.length > 0 && (
+            <div className="rounded-xl border border-gray-200/80 bg-white shadow-sm overflow-hidden">
+              <div className="border-b border-gray-100 px-5 py-3">
+                <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Per-API Breakdown</h3>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {proof.breakdown.map((row) => (
+                  <div key={row.slug} className="flex items-center justify-between px-5 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 font-mono">{row.slug}</p>
+                      <p className="text-xs text-gray-400">{row.calls} calls</p>
+                    </div>
+                    <span className="text-sm font-bold text-emerald-700">{fmt$(row.earningsUsdc)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recent transactions preview */}
+          {proof.transactions.length > 0 && (
+            <div className="rounded-xl border border-gray-200/80 bg-white shadow-sm overflow-hidden">
+              <div className="border-b border-gray-100 px-5 py-3">
+                <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  Transactions ({proof.transactions.length})
+                </h3>
+              </div>
+              <div className="divide-y divide-gray-50 max-h-48 overflow-y-auto">
+                {proof.transactions.slice(0, 20).map((tx) => (
+                  <div key={tx.txHash} className="flex items-center justify-between px-5 py-2.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${tx.success ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                      <a
+                        href={proof.stellarExplorerBase + tx.txHash}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-mono text-xs text-indigo-600 hover:text-indigo-800 truncate"
+                      >
+                        {tx.txHash.slice(0, 16)}…
+                      </a>
+                    </div>
+                    <span className="text-xs font-mono text-gray-500 flex-shrink-0 ml-2">{fmt$(tx.amountUsdc)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={handleDownload}
+              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500"
+            >
+              <FileText className="h-4 w-4" /> Download JSON
+            </button>
+            <button
+              onClick={handleCopyLink}
+              className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+            >
+              <ExternalLink className="h-4 w-4" />
+              {copied ? 'Copied!' : 'Copy Share Link'}
+            </button>
+          </div>
+
+          <p className="text-[11px] text-gray-400">
+            Generated {new Date(proof.generatedAt).toLocaleString()} · Last {proof.periodDays} days · Each txHash is independently verifiable on Stellar
+          </p>
+        </>
+      ) : null}
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const TABS: { id: ProviderTab; label: string; icon: React.ElementType }[] = [
@@ -695,6 +885,7 @@ const TABS: { id: ProviderTab; label: string; icon: React.ElementType }[] = [
   { id: 'apis', label: 'APIs', icon: List },
   { id: 'register', label: 'Register API', icon: Plus },
   { id: 'calls', label: 'Calls', icon: Activity },
+  { id: 'earnings', label: 'Earnings Proof', icon: FileText },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
@@ -983,6 +1174,7 @@ export default function ProviderPage() {
               />
             )}
             {activeTab === 'calls' && <CallsTab dashboard={dashboard} />}
+            {activeTab === 'earnings' && <EarningsProofTab providerAddress={providerAddress} />}
             {activeTab === 'settings' && <SettingsTab dashboard={dashboard} />}
           </div>
         </div>
