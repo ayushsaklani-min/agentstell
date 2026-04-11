@@ -123,3 +123,16 @@ model MarketplaceStats {
   totalVolumeUsdc Float    @default(0)
   updatedAt       DateTime @updatedAt
 }
+
+// Wanted Board — API requests from consumers
+model WantedPost {
+  id            String   @id @default(cuid())
+  title         String
+  description   String
+  category      String
+  budgetUsdc    Float
+  posterAddress String
+  status        String   @default("open")  // open | fulfilled | closed
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
