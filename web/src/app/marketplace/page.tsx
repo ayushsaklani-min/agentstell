@@ -26,6 +26,30 @@ interface MarketplaceStats {
 
 const CATEGORIES = ['All', 'Data', 'Finance', 'AI', 'Geo', 'Utilities', 'News', 'Weather', 'Agent']
 
+function HealthDot({ status }: { status: 'healthy' | 'degraded' | 'down' | 'unknown' | 'loading' | undefined }) {
+  const map: Record<string, string> = {
+    healthy:  'bg-emerald-400',
+    degraded: 'bg-amber-400',
+    down:     'bg-red-400',
+    unknown:  'bg-gray-300',
+    loading:  'bg-gray-300 animate-pulse',
+  }
+  const label: Record<string, string> = {
+    healthy:  'Healthy',
+    degraded: 'Degraded',
+    down:     'Down',
+    unknown:  'Unknown',
+    loading:  'Checking…',
+  }
+  const s = status ?? 'unknown'
+  return (
+    <span
+      className={`inline-block h-2 w-2 rounded-full ${map[s] ?? map.unknown}`}
+      title={label[s] ?? 'Unknown'}
+    />
+  )
+}
+
 const CATEGORY_COLORS: Record<string, string> = {
   AI: 'from-violet-50 to-purple-50 text-violet-600',
   Finance: 'from-emerald-50 to-green-50 text-emerald-600',
@@ -47,6 +71,7 @@ export default function MarketplacePage() {
   const [stats, setStats] = useState<MarketplaceStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [healthMap, setHealthMap] = useState<Record<string, 'healthy' | 'degraded' | 'down' | 'unknown' | 'loading'>>({})
 
   useEffect(() => {
     async function load() {
@@ -66,6 +91,26 @@ export default function MarketplacePage() {
     }
     load()
   }, [])
+
+  useEffect(() => {
+    if (apis.length === 0) return
+    // initialise all to 'loading'
+    setHealthMap(Object.fromEntries(apis.map((a) => [a.slug, 'loading'])))
+    // fire parallel health checks
+    for (const api of apis) {
+      fetch(`/api/health/${api.slug}`)
+        .then((r) => r.json())
+        .then((data: { status?: string }) => {
+          setHealthMap((prev) => ({
+            ...prev,
+            [api.slug]: (data.status as 'healthy' | 'degraded' | 'down') ?? 'unknown',
+          }))
+        })
+        .catch(() => {
+          setHealthMap((prev) => ({ ...prev, [api.slug]: 'unknown' }))
+        })
+    }
+  }, [apis])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
@@ -181,7 +226,8 @@ export default function MarketplacePage() {
                           {api.icon || api.name.slice(0, 2).toUpperCase()}
                         </span>
                       </div>
-                      <div className="text-right">
+                      <div className="flex items-center gap-2 text-right">
+                        <HealthDot status={healthMap[api.slug]} />
                         <span className="rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-1 font-mono text-xs font-bold text-emerald-700">
                           ${api.priceUsdc.toFixed(3)}/call
                         </span>
