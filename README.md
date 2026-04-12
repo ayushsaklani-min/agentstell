@@ -176,12 +176,12 @@ const news = await agent.get('news', { topic: 'AI' });
 ### For Developers — CLI
 
 ```bash
-npm install -g agentmarket-cli
+npm install -g agstell-cli
 
 agentmarket init --generate   # create a Stellar keypair
 agentmarket fund              # fund from faucet (testnet) or transfer XLM (mainnet)
 agentmarket list              # browse the marketplace
-agentmarket call stock-analyst --symbol TSLA
+agentmarket call stock-analyst -p '{"symbol":"TSLA"}'
 ```
 
 ### Raw HTTP — Any Language, Any Agent
