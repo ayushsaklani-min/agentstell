@@ -74,111 +74,6 @@ function buildCapabilitySpec(
 const FALLBACK_CATALOG: MarketplaceListing[] = [
   (() => {
     const params: MarketplaceParam[] = [
-      { name: 'task', type: 'string', required: false, description: 'Short test task label.' },
-      { name: 'agentId', type: 'string', required: false, description: 'Agent identifier for traceability.' },
-    ]
-    const exReq = { task: 'validate sdk payment flow', agentId: 'codex' }
-    const exRes = { api: 'agent-test', accepted: true, task: 'validate sdk payment flow', agentId: 'codex' }
-    return {
-      id: 'agent-test',
-      slug: 'agent-test',
-      name: 'Agent Test API',
-      icon: 'TEST',
-      description: 'Paid integration test route for validating live SDK agent calls.',
-      longDescription:
-        'A controlled endpoint for validating the full x402 payment flow end to end. Useful for SDK smoke tests, wallet validation, and marketplace wiring checks.',
-      category: 'Utilities',
-      priceUsdc: 0.001,
-      endpoint: '/api/proxy/agent-test',
-      method: 'GET' as const,
-      providerName: 'AgentMarket',
-      providerStellarAddress: DEFAULT_PROVIDER_ADDRESS,
-      totalCalls: 0,
-      successRate: 100,
-      avgLatencyMs: 0,
-      isActive: true,
-      isFeatured: false,
-      params,
-      exampleRequest: exReq,
-      exampleResponse: exRes,
-      capabilitySpec: buildCapabilitySpec(params, exReq, exRes),
-    }
-  })(),
-  (() => {
-    const params: MarketplaceParam[] = [
-      { name: 'city', type: 'string', required: true, description: 'City name, for example Mumbai or New York.' },
-      { name: 'units', type: 'string', required: false, description: 'Optional temperature units. Defaults to metric.' },
-    ]
-    const exReq = { city: 'Mumbai' }
-    const exRes = { city: 'Mumbai', country: 'IN', temp: 32, humidity: 78, conditions: 'Cloudy' }
-    return {
-      id: 'weather', slug: 'weather', name: 'Weather API', icon: 'WX',
-      description: 'Get current weather data for any city worldwide.',
-      longDescription: 'Access real-time weather data for over 200,000 cities worldwide. Get temperature, humidity, wind speed, conditions, and more.',
-      category: 'Data', priceUsdc: 0.001, endpoint: '/api/proxy/weather', method: 'GET' as const,
-      providerName: 'AgentMarket', providerStellarAddress: DEFAULT_PROVIDER_ADDRESS,
-      totalCalls: 0, successRate: 100, avgLatencyMs: 0, isActive: true, isFeatured: true,
-      params, exampleRequest: exReq, exampleResponse: exRes,
-      capabilitySpec: buildCapabilitySpec(params, exReq, exRes, { latencyHint: 'medium' }),
-    }
-  })(),
-  (() => {
-    const params: MarketplaceParam[] = [
-      { name: 'topic', type: 'string', required: true, description: 'Topic to search for, for example stellar or AI.' },
-      { name: 'limit', type: 'number', required: false, description: 'Number of headlines to return. Defaults to 10.' },
-    ]
-    const exReq = { topic: 'stellar', limit: 3 }
-    const exRes = { articles: [{ title: 'Stellar adoption grows', source: 'TechCrunch' }], totalResults: 1, query: 'stellar' }
-    return {
-      id: 'news', slug: 'news', name: 'News API', icon: 'NEWS',
-      description: 'Fetch latest news headlines by topic.',
-      longDescription: 'Get breaking headlines from global sources, filtered by topic and limit. Useful for research agents that need fresh context.',
-      category: 'Data', priceUsdc: 0.002, endpoint: '/api/proxy/news', method: 'GET' as const,
-      providerName: 'AgentMarket', providerStellarAddress: DEFAULT_PROVIDER_ADDRESS,
-      totalCalls: 0, successRate: 100, avgLatencyMs: 0, isActive: true, isFeatured: true,
-      params, exampleRequest: exReq, exampleResponse: exRes,
-      capabilitySpec: buildCapabilitySpec(params, exReq, exRes, { latencyHint: 'medium' }),
-    }
-  })(),
-  (() => {
-    const params: MarketplaceParam[] = [
-      { name: 'prompt', type: 'string', required: true, description: 'Prompt sent to the model.' },
-      { name: 'model', type: 'string', required: false, description: 'Optional model override.' },
-    ]
-    const exReq = { prompt: 'Explain x402 in one paragraph.' }
-    const exRes = { response: 'x402 extends HTTP 402 into a machine-payable API pattern.', model: 'gpt-4.1', tokensUsed: 42 }
-    return {
-      id: 'ai', slug: 'ai', name: 'AI Inference', icon: 'AI',
-      description: 'Run AI inference queries through a pay-per-call endpoint.',
-      longDescription: 'Access AI model inference with a single x402 flow. Useful for agents that need lightweight, metered reasoning without subscriptions.',
-      category: 'AI', priceUsdc: 0.005, endpoint: '/api/proxy/ai', method: 'POST' as const,
-      providerName: 'AgentMarket', providerStellarAddress: DEFAULT_PROVIDER_ADDRESS,
-      totalCalls: 0, successRate: 100, avgLatencyMs: 0, isActive: true, isFeatured: true,
-      params, exampleRequest: exReq, exampleResponse: exRes,
-      capabilitySpec: buildCapabilitySpec(params, exReq, exRes, { sideEffectLevel: 'write', latencyHint: 'slow', idempotent: false }),
-    }
-  })(),
-  (() => {
-    const params: MarketplaceParam[] = [
-      { name: 'from', type: 'string', required: true, description: 'Base currency code.' },
-      { name: 'to', type: 'string', required: true, description: 'Target currency code.' },
-      { name: 'amount', type: 'number', required: false, description: 'Amount to convert. Defaults to 1.' },
-    ]
-    const exReq = { from: 'USD', to: 'INR', amount: 100 }
-    const exRes = { from: 'USD', to: 'INR', amount: 100, rate: 83.12, converted: 8312 }
-    return {
-      id: 'currency', slug: 'currency', name: 'Currency Exchange', icon: 'FX',
-      description: 'Convert between currencies with live rates.',
-      longDescription: 'Fetch current FX rates and convert exact amounts. Useful for fintech agents and pricing workflows.',
-      category: 'Finance', priceUsdc: 0.001, endpoint: '/api/proxy/currency', method: 'GET' as const,
-      providerName: 'AgentMarket', providerStellarAddress: DEFAULT_PROVIDER_ADDRESS,
-      totalCalls: 0, successRate: 100, avgLatencyMs: 0, isActive: true, isFeatured: false,
-      params, exampleRequest: exReq, exampleResponse: exRes,
-      capabilitySpec: buildCapabilitySpec(params, exReq, exRes),
-    }
-  })(),
-  (() => {
-    const params: MarketplaceParam[] = [
       { name: 'symbol', type: 'string', required: true, description: 'Stock ticker symbol, for example AAPL or TSLA.' },
     ]
     const exReq = { symbol: 'AAPL' }
@@ -221,36 +116,58 @@ const FALLBACK_CATALOG: MarketplaceListing[] = [
   })(),
   (() => {
     const params: MarketplaceParam[] = [
-      { name: 'ip', type: 'string', required: false, description: 'IP address to look up. Defaults to requester IP.' },
+      { name: 'symbol', type: 'string', required: true, description: 'Stock ticker symbol, for example TSLA or NVDA.' },
     ]
-    const exReq = { ip: '8.8.8.8' }
-    const exRes = { ip: '8.8.8.8', city: 'Mountain View', country: 'US', timezone: 'America/Los_Angeles' }
-    return {
-      id: 'geolocation', slug: 'geolocation', name: 'Geolocation API', icon: 'GEO',
-      description: 'Resolve IP addresses into location metadata.',
-      longDescription: 'Convert IP addresses into city, country, timezone, and network metadata for personalization or security workflows.',
-      category: 'Geo', priceUsdc: 0.001, endpoint: '/api/proxy/geolocation', method: 'GET' as const,
-      providerName: 'AgentMarket', providerStellarAddress: DEFAULT_PROVIDER_ADDRESS,
-      totalCalls: 0, successRate: 100, avgLatencyMs: 0, isActive: true, isFeatured: false,
-      params, exampleRequest: exReq, exampleResponse: exRes,
-      capabilitySpec: buildCapabilitySpec(params, exReq, exRes),
+    const exReq = { symbol: 'TSLA' }
+    const exRes = {
+      symbol: 'TSLA',
+      companyName: 'Tesla, Inc.',
+      currentPrice: 245.32,
+      changePercent: 1.87,
+      recommendation: {
+        action: 'BUY',
+        confidence: 72,
+        entryTarget: 240.41,
+        exitTarget: 264.95,
+        stopLoss: 233.05,
+        timeHorizon: 'medium',
+        riskLevel: 'MEDIUM',
+        reasons: [
+          'Positive momentum with 1.87% gain on rising volume',
+          'Trading below 52-week high, room for upside',
+          'Sector tailwinds supporting medium-term thesis',
+        ],
+      },
+      marketContext: {
+        volume: 95321400,
+        fiftyTwoWeekHigh: 299.29,
+        fiftyTwoWeekLow: 138.80,
+      },
+      analysisBy: 'gemini-2.5-flash-lite',
     }
-  })(),
-  (() => {
-    const params: MarketplaceParam[] = [
-      { name: 'city', type: 'string', required: true, description: 'City name.' },
-    ]
-    const exReq = { city: 'Delhi' }
-    const exRes = { city: 'Delhi', aqi: 156, category: 'Unhealthy', mainPollutant: 'pm25' }
     return {
-      id: 'air-quality', slug: 'air-quality', name: 'Air Quality API', icon: 'AQ',
-      description: 'Get real-time AQI and pollution metrics.',
-      longDescription: 'Retrieve current air quality, AQI category, and basic pollutant breakdown for city-level environmental analysis.',
-      category: 'Data', priceUsdc: 0.001, endpoint: '/api/proxy/air-quality', method: 'GET' as const,
-      providerName: 'AgentMarket', providerStellarAddress: DEFAULT_PROVIDER_ADDRESS,
-      totalCalls: 0, successRate: 100, avgLatencyMs: 0, isActive: true, isFeatured: false,
-      params, exampleRequest: exReq, exampleResponse: exRes,
-      capabilitySpec: buildCapabilitySpec(params, exReq, exRes, { latencyHint: 'medium' }),
+      id: 'trading-advisor',
+      slug: 'trading-advisor',
+      name: 'Trading Advisor',
+      icon: 'ADV',
+      description: 'AI agent that delivers actionable trading recommendations with entry/exit targets and risk profile.',
+      longDescription:
+        'Submit a stock ticker and receive a full trading recommendation: BUY/HOLD/SELL action, confidence score, entry target, exit target, stop-loss, time horizon, risk level, and key reasoning. Powered by Gemini with live Yahoo Finance data. Designed for autonomous trading agents that need actionable signals rather than raw data.',
+      category: 'Finance',
+      priceUsdc: 0.02,
+      endpoint: '/api/proxy/trading-advisor',
+      method: 'GET' as const,
+      providerName: 'AgentMarket',
+      providerStellarAddress: DEFAULT_PROVIDER_ADDRESS,
+      totalCalls: 0,
+      successRate: 100,
+      avgLatencyMs: 1800,
+      isActive: true,
+      isFeatured: true,
+      params,
+      exampleRequest: exReq,
+      exampleResponse: exRes,
+      capabilitySpec: buildCapabilitySpec(params, exReq, exRes, { sideEffectLevel: 'read', latencyHint: 'slow', idempotent: true }),
     }
   })(),
 ]

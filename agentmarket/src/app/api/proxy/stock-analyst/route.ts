@@ -228,14 +228,7 @@ async function stockAnalystHandler(
   _payment: PaymentVerificationResult
 ): Promise<NextResponse> {
   const { searchParams } = new URL(request.url)
-  const symbol = searchParams.get('symbol')?.toUpperCase().trim()
-
-  if (!symbol) {
-    return NextResponse.json(
-      { error: 'Missing required parameter: symbol' },
-      { status: 400 }
-    )
-  }
+  const symbol = (searchParams.get('symbol') || 'AAPL').toUpperCase().trim()
 
   let meta: YahooMeta
   try {
