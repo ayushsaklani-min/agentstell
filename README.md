@@ -52,6 +52,18 @@ Trading Advisor has its own Stellar wallet (`GCIWVZ3X…`) and autonomously pays
 
 ---
 
+## Live wallets on Stellar mainnet
+
+| Role | Address | What it does |
+|---|---|---|
+| **Platform wallet** | [`GALXP6IQ…OOZ`](https://stellar.expert/explorer/public/account/GALXP6IQ26WKGOE74YMWKWB5YNU25TY2PSNZ3QIES7FJMGA6R4HB5OOZ) | Receives user payments for curated APIs |
+| **Trading Advisor agent wallet** | [`GCIWVZ3X…BGP`](https://stellar.expert/explorer/public/account/GCIWVZ3X4NPBGNECWB7VDTW2O6AGS5ISPCG23MZM2YNMV6FUH4JYOBGP) | Trading Advisor's **own** wallet — autonomously pays Stock Analyst 0.1 XLM per call, no human in the loop |
+| **Provider wallet** | [`GA7CDNYK…YXWT`](https://stellar.expert/explorer/public/account/GA7CDNYK3I4X5KRSYGI7HIHWF2XAIZMRVZAWFSHUP2PZUNM4ETVIYXWT) | Third-party provider registered via the marketplace, earns XLM per call |
+
+Every transaction on `GCIWVZ3X…` is an autonomous agent-to-agent payment — verifiable by anyone on-chain.
+
+---
+
 ## Test it yourself
 
 > **You need:** Node 18+, a Stellar mainnet wallet with a few XLM (any exchange).
