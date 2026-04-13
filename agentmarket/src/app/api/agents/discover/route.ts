@@ -43,7 +43,7 @@ function toAgentEntry(listing: MarketplaceListing): AgentEntry {
     name: listing.name,
     description: listing.description,
     category: listing.category,
-    price: { amount: listing.priceUsdc, asset: 'USDC' },
+    price: { amount: listing.priceUsdc, asset: 'XLM' },
     endpoint: listing.endpoint,
     method: listing.method,
     input: {
@@ -100,7 +100,7 @@ export async function GET() {
     marketplace,
     paymentProtocol: 'x402',
     paymentNetwork: network,
-    paymentAsset: 'USDC',
+    paymentAsset: 'XLM',
     total: apis.length,
     apis,
   })

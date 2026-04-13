@@ -98,7 +98,7 @@ const FALLBACK_CATALOG: MarketplaceListing[] = [
       longDescription:
         'Submit a stock ticker symbol and receive real-time price data combined with Gemini AI sentiment analysis. Returns bullish/bearish/neutral rating with a one-line reason. Ideal for trading agents that need fast, metered market intelligence.',
       category: 'Finance',
-      priceUsdc: 0.005,
+      priceUsdc: 0.1,
       endpoint: '/api/proxy/stock-analyst',
       method: 'GET' as const,
       providerName: 'AgentMarket',
@@ -154,7 +154,7 @@ const FALLBACK_CATALOG: MarketplaceListing[] = [
       longDescription:
         'Submit a stock ticker and receive a full trading recommendation: BUY/HOLD/SELL action, confidence score, entry target, exit target, stop-loss, time horizon, risk level, and key reasoning. Powered by Gemini with live Yahoo Finance data. Designed for autonomous trading agents that need actionable signals rather than raw data.',
       category: 'Finance',
-      priceUsdc: 0.02,
+      priceUsdc: 0.5,
       endpoint: '/api/proxy/trading-advisor',
       method: 'GET' as const,
       providerName: 'AgentMarket',

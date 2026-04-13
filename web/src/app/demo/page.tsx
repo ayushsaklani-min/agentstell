@@ -27,8 +27,8 @@ interface ApiDef {
 }
 
 const APIS: ApiDef[] = [
-  { id: 'stock-analyst', name: 'Stock Analyst', icon: 'STK', price: 0.005, query: { symbol: 'AAPL' }, color: 'from-blue-50 to-sky-50 border-blue-100', textColor: 'text-blue-600' },
-  { id: 'trading-advisor', name: 'Trading Advisor', icon: 'ADV', price: 0.02, query: { symbol: 'TSLA' }, color: 'from-violet-50 to-purple-50 border-violet-100', textColor: 'text-violet-600' },
+  { id: 'stock-analyst', name: 'Stock Analyst', icon: 'STK', price: 0.1, query: { symbol: 'AAPL' }, color: 'from-blue-50 to-sky-50 border-blue-100', textColor: 'text-blue-600' },
+  { id: 'trading-advisor', name: 'Trading Advisor', icon: 'ADV', price: 0.5, query: { symbol: 'TSLA' }, color: 'from-violet-50 to-purple-50 border-violet-100', textColor: 'text-violet-600' },
 ]
 
 type TxStatus = 'pending' | 'confirmed' | 'success' | 'error'
@@ -61,7 +61,6 @@ export default function DemoPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(false)
   const [totalSpent, setTotalSpent] = useState(0)
-  const [currency, setCurrency] = useState<'USDC' | 'XLM'>('USDC')
   const [wallet, setWallet] = useState<WalletInfo | null>(null)
   const [walletLoading, setWalletLoading] = useState(true)
   const [walletError, setWalletError] = useState<string | null>(null)
@@ -105,7 +104,7 @@ export default function DemoPage() {
       const step2 = await fetch('/api/pay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipient: payment.recipient, amount: payment.amount, memo: payment.memo, network: payment.network, currency }),
+        body: JSON.stringify({ recipient: payment.recipient, amount: payment.amount, memo: payment.memo, network: payment.network }),
       })
       if (!step2.ok) { const e = await step2.json(); throw new Error(e.error ?? 'Payment failed') }
       const payData = await step2.json()
@@ -201,21 +200,15 @@ export default function DemoPage() {
                     </a>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-xl bg-gray-50 p-4">
-                      <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">XLM</p>
-                      <p className="text-xl font-bold text-gray-900">{parseFloat(wallet.xlm).toFixed(2)}</p>
-                    </div>
-                    <div className="rounded-xl bg-emerald-50 p-4">
-                      <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-emerald-500">USDC</p>
-                      <p className="text-xl font-bold text-emerald-700">${parseFloat(wallet.usdc).toFixed(4)}</p>
-                    </div>
+                  <div className="rounded-xl bg-amber-50 p-4 border border-amber-100">
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-amber-600">XLM Balance</p>
+                    <p className="text-2xl font-bold text-amber-700">{parseFloat(wallet.xlm).toFixed(4)}</p>
                   </div>
 
                   <div className="space-y-2 rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-500">Session spent</span>
-                      <span className="font-bold text-red-600">-${totalSpent.toFixed(4)}</span>
+                      <span className="font-bold text-red-600">-{totalSpent.toFixed(4)} XLM</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Successful calls</span>
@@ -264,27 +257,10 @@ export default function DemoPage() {
                         <span className={`text-[9px] font-black tracking-widest ${api.textColor}`}>{api.icon}</span>
                       </div>
                       <p className="mt-2.5 text-xs font-bold text-gray-900">{api.name}</p>
-                      <p className="text-[11px] font-mono text-gray-500">${api.price.toFixed(3)}/call</p>
+                      <p className="text-[11px] font-mono text-gray-500">{api.price.toFixed(2)} XLM/call</p>
                     </button>
                   )
                 })}
-              </div>
-
-              {/* Currency toggle */}
-              <div className="mb-3 flex rounded-xl border border-gray-200 bg-gray-50 p-1 gap-1">
-                {(['USDC', 'XLM'] as const).map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setCurrency(c)}
-                    className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all ${
-                      currency === c
-                        ? 'bg-white text-indigo-700 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    {c === 'USDC' ? '💵 USDC' : '⭐ XLM → USDC'}
-                  </button>
-                ))}
               </div>
 
               <button
@@ -304,10 +280,9 @@ export default function DemoPage() {
               </button>
 
               <p className="mt-3 text-center text-xs text-gray-400">
-                {currency === 'USDC'
-                  ? <><span>{'Sends '}</span><span className="font-bold text-emerald-600">${selectedApi.price.toFixed(3)} USDC</span><span>{' on Stellar testnet'}</span></>
-                  : <><span>{'Pays in '}</span><span className="font-bold text-amber-600">XLM</span><span>{' → converted to '}</span><span className="font-bold text-emerald-600">${selectedApi.price.toFixed(3)} USDC</span><span>{' via Stellar DEX'}</span></>
-                }
+                <span>{'Sends '}</span>
+                <span className="font-bold text-amber-600">{selectedApi.price.toFixed(2)} XLM</span>
+                <span>{' natively on Stellar mainnet'}</span>
               </p>
 
               {/* Flow steps */}
@@ -373,7 +348,7 @@ export default function DemoPage() {
                           <span className="text-sm font-bold text-gray-900">{tx.api}</span>
                         </div>
                         <span className={`flex-shrink-0 font-mono text-sm font-bold ${tx.status === 'error' ? 'text-red-500' : 'text-emerald-600'}`}>
-                          {tx.status === 'error' ? 'FAILED' : `-$${tx.amount.toFixed(3)}`}
+                          {tx.status === 'error' ? 'FAILED' : `-${tx.amount.toFixed(4)} XLM`}
                         </span>
                       </div>
 

@@ -91,6 +91,9 @@ function buildUpstreamUrl(request: NextRequest, endpoint: string) {
   return url
 }
 
+const ACTIVE_NETWORK: 'testnet' | 'mainnet' =
+  (process.env.STELLAR_NETWORK as 'testnet' | 'mainnet') || 'testnet'
+
 async function executeListingRequest(
   request: NextRequest,
   listing: NonNullable<ActiveListing>
@@ -98,7 +101,7 @@ async function executeListingRequest(
   const startedAt = Date.now()
   const verification = await verifyPayment(request, listing.priceUsdc, {
     recipient: listing.provider.stellarAddress,
-    network: 'testnet',
+    network: ACTIVE_NETWORK,
   })
 
   if (!verification.valid || !verification.txHash) {
@@ -222,7 +225,7 @@ async function handleRequest(
       listing.name,
       listing.slug,
       listing.priceUsdc,
-      'testnet',
+      ACTIVE_NETWORK,
       listing.provider.stellarAddress,
       `agentmarket:${listing.slug}`
     )

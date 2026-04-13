@@ -15,7 +15,7 @@ import { withX402Payment, PaymentVerificationResult } from '@/lib/x402/middlewar
 
 const API_NAME = 'Trading Advisor'
 const API_ID = 'trading-advisor'
-const PRICE_USDC = 0.02
+const PRICE_XLM = 0.5
 
 const GEMINI_API_KEY =
   process.env.GEMINI_API_KEY ||
@@ -295,4 +295,4 @@ async function tradingAdvisorHandler(
   })
 }
 
-export const GET = withX402Payment(API_NAME, API_ID, PRICE_USDC, tradingAdvisorHandler)
+export const GET = withX402Payment(API_NAME, API_ID, PRICE_XLM, tradingAdvisorHandler)

@@ -1,6 +1,6 @@
 /**
  * Stock Analyst API Proxy
- * Price: 0.005 USDC per call
+ * Price: 0.1 XLM per call (mainnet)
  *
  * Fetches live stock data from Yahoo Finance and feeds it to Gemini
  * for sentiment analysis, returning structured JSON with price data.
@@ -11,7 +11,7 @@ import { withX402Payment, PaymentVerificationResult } from '@/lib/x402/middlewar
 
 const API_NAME = 'Stock Analyst'
 const API_ID = 'stock-analyst'
-const PRICE_USDC = 0.005
+const PRICE_XLM = 0.1
 
 const GEMINI_API_KEY =
   process.env.GEMINI_API_KEY ||
@@ -287,4 +287,4 @@ async function stockAnalystHandler(
   })
 }
 
-export const GET = withX402Payment(API_NAME, API_ID, PRICE_USDC, stockAnalystHandler)
+export const GET = withX402Payment(API_NAME, API_ID, PRICE_XLM, stockAnalystHandler)

@@ -23,17 +23,9 @@ const NETWORKS = {
   },
 }
 
-// USDC Assets
-const USDC = {
-  testnet: {
-    code: 'USDC',
-    issuer: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
-  },
-  mainnet: {
-    code: 'USDC',
-    issuer: 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN',
-  },
-}
+// Active network — set STELLAR_NETWORK=mainnet on EC2 to switch
+const ACTIVE_NETWORK: 'testnet' | 'mainnet' =
+  (process.env.STELLAR_NETWORK as 'testnet' | 'mainnet') || 'testnet'
 
 // AgentMarket wallet (receives payments)
 const AGENTMARKET_WALLET = process.env.AGENTMARKET_WALLET_PUBLIC || 'GDQP2KPQGKIHYJGXNUIYOMHARUARCA7DJT5FO2FFOOUJ3VQXTWLHKMIS'
@@ -72,19 +64,20 @@ const usedTransactions = new Set<string>()
 export function paymentRequired(
   apiName: string,
   apiId: string,
-  priceUsdc: number,
-  network: 'testnet' | 'mainnet' = 'testnet',
+  priceXlm: number,
+  network: 'testnet' | 'mainnet' = ACTIVE_NETWORK,
   recipient: string = AGENTMARKET_WALLET,
   memo: string = `agentmarket:${apiId}`
 ): NextResponse {
   return NextResponse.json(
     {
       error: 'Payment Required',
-      message: `This API requires a payment of ${priceUsdc} USDC`,
+      message: `This API requires a payment of ${priceXlm} XLM`,
       payment: {
         recipient,
-        amount: priceUsdc.toFixed(6),
-        currency: 'USDC',
+        amount: priceXlm.toFixed(7),
+        currency: 'XLM',
+        asset: 'native',
         memo,
         network,
         apiId,
@@ -126,10 +119,9 @@ export async function verifyPayment(
     }
 
     // Verify transaction on Stellar
-    const network = options.network || proof.network || 'testnet'
+    const network = options.network || proof.network || ACTIVE_NETWORK
     const recipient = options.recipient || AGENTMARKET_WALLET
     const server = new StellarSdk.Horizon.Server(NETWORKS[network].horizonUrl)
-    const usdc = USDC[network]
 
     const operations = await server
       .operations()
@@ -140,16 +132,14 @@ export async function verifyPayment(
       if (op.type === 'payment') {
         const paymentOp = op as StellarSdk.Horizon.ServerApi.PaymentOperationRecord
 
+        // Native XLM payment: no asset_code / asset_issuer, asset_type === 'native'
         if (
           paymentOp.to === recipient &&
-          paymentOp.asset_code === usdc.code &&
-          paymentOp.asset_issuer === usdc.issuer &&
+          paymentOp.asset_type === 'native' &&
           parseFloat(paymentOp.amount) >= expectedAmount
         ) {
-          // Mark transaction as used
           usedTransactions.add(proof.txHash)
 
-          // Clean up old transactions periodically (simple approach)
           if (usedTransactions.size > 10000) {
             const iterator = usedTransactions.values()
             for (let i = 0; i < 5000; i++) {
@@ -167,10 +157,10 @@ export async function verifyPayment(
         }
       } else if (op.type === 'path_payment_strict_receive') {
         const pathOp = op as StellarSdk.Horizon.ServerApi.PathPaymentOperationRecord
+        // Path payment where the destination asset is native XLM
         if (
           pathOp.to === recipient &&
-          pathOp.asset_code === usdc.code &&
-          pathOp.asset_issuer === usdc.issuer &&
+          pathOp.asset_type === 'native' &&
           parseFloat(pathOp.amount) >= expectedAmount
         ) {
           usedTransactions.add(proof.txHash)
@@ -193,7 +183,7 @@ export async function verifyPayment(
       }
     }
 
-    return { valid: false, error: 'Payment not found or insufficient amount' }
+    return { valid: false, error: 'Payment not found or insufficient XLM amount' }
   } catch (error) {
     console.error('Payment verification error:', error)
     return { 
@@ -209,7 +199,7 @@ export async function verifyPayment(
 export function withX402Payment(
   apiName: string,
   apiId: string,
-  priceUsdc: number,
+  priceXlm: number,
   handler: (
     request: NextRequest,
     payment: PaymentVerificationResult
@@ -219,17 +209,15 @@ export function withX402Payment(
   return async (request: NextRequest): Promise<NextResponse> => {
     // Check if payment proof is present
     const hasPaymentProof = request.headers.has(X402_HEADERS.PAYMENT_PROOF)
-    const network = options.network || 'testnet'
+    const network = options.network || ACTIVE_NETWORK
     const recipient = options.recipient || AGENTMARKET_WALLET
     const memo = options.memo || `agentmarket:${apiId}`
 
     if (!hasPaymentProof) {
-      // Return 402 Payment Required
-      return paymentRequired(apiName, apiId, priceUsdc, network, recipient, memo)
+      return paymentRequired(apiName, apiId, priceXlm, network, recipient, memo)
     }
 
-    // Verify the payment
-    const verification = await verifyPayment(request, priceUsdc, {
+    const verification = await verifyPayment(request, priceXlm, {
       network,
       recipient,
     })
@@ -244,12 +232,10 @@ export function withX402Payment(
       )
     }
 
-    // Payment valid - execute the API handler
     const response = await handler(request, verification)
 
-    // Add payment info to response headers
     response.headers.set('X-Payment-TxHash', verification.txHash || '')
-    response.headers.set('X-Payment-Amount', priceUsdc.toFixed(6))
+    response.headers.set('X-Payment-Amount', priceXlm.toFixed(7))
 
     return response
   }
