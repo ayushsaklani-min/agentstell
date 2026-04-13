@@ -27,10 +27,8 @@ interface ApiDef {
 }
 
 const APIS: ApiDef[] = [
-  { id: 'weather', name: 'Weather', icon: 'WX', price: 0.001, query: { city: 'Mumbai' }, color: 'from-blue-50 to-sky-50 border-blue-100', textColor: 'text-blue-600' },
-  { id: 'news', name: 'News', icon: 'NEWS', price: 0.002, query: { topic: 'stellar', limit: '3' }, color: 'from-orange-50 to-amber-50 border-orange-100', textColor: 'text-orange-600' },
-  { id: 'ai', name: 'AI Inference', icon: 'AI', price: 0.005, query: { prompt: 'Summarize why x402 micropayments are useful for AI agents.' }, color: 'from-violet-50 to-purple-50 border-violet-100', textColor: 'text-violet-600' },
-  { id: 'currency', name: 'Currency', icon: 'FX', price: 0.001, query: { from: 'USD', to: 'INR', amount: '100' }, color: 'from-emerald-50 to-green-50 border-emerald-100', textColor: 'text-emerald-600' },
+  { id: 'stock-analyst', name: 'Stock Analyst', icon: 'STK', price: 0.005, query: { symbol: 'AAPL' }, color: 'from-blue-50 to-sky-50 border-blue-100', textColor: 'text-blue-600' },
+  { id: 'trading-advisor', name: 'Trading Advisor', icon: 'ADV', price: 0.02, query: { symbol: 'TSLA' }, color: 'from-violet-50 to-purple-50 border-violet-100', textColor: 'text-violet-600' },
 ]
 
 type TxStatus = 'pending' | 'confirmed' | 'success' | 'error'
@@ -59,7 +57,7 @@ function buildApiUrl(id: string, query: Record<string, string>) {
 }
 
 export default function DemoPage() {
-  const [selected, setSelected] = useState('weather')
+  const [selected, setSelected] = useState('stock-analyst')
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(false)
   const [totalSpent, setTotalSpent] = useState(0)
