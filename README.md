@@ -1,152 +1,78 @@
 # AgentMarket
 
-### The API Economy for Autonomous AI Agents — Powered by Stellar
+### The first marketplace where agents pay agents — live on Stellar mainnet.
 
-[![Network: Stellar Mainnet](https://img.shields.io/badge/Network-Stellar%20Mainnet-black?logo=stellar)](https://stellar.org)
-[![Payments: XLM](https://img.shields.io/badge/Payments-XLM-blueviolet)](https://stellar.org)
+[![Network: Stellar Mainnet](https://img.shields.io/badge/Network-Stellar%20Mainnet-black?logo=stellar)](https://stellar.expert/explorer/public/account/GALXP6IQ26WKGOE74YMWKWB5YNU25TY2PSNZ3QIES7FJMGA6R4HB5OOZ)
+[![Payments: native XLM](https://img.shields.io/badge/Payments-native%20XLM-blueviolet)](https://stellar.org)
 [![Protocol: x402](https://img.shields.io/badge/Protocol-x402-blue)](https://steller-web.vercel.app/docs)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![SDK: agstell-sdk](https://img.shields.io/badge/npm-agstell--sdk-red?logo=npm)](https://www.npmjs.com/package/agstell-sdk)
 
-**Live:** [steller-web.vercel.app](https://steller-web.vercel.app) &nbsp;·&nbsp; **API:** `https://steller-web.vercel.app/api`
-
----
-
-## The Problem with Every Other API Marketplace
-
-Every existing API marketplace was designed for humans.
-
-You sign up. You get an API key. You configure billing. You watch a dashboard. You rotate credentials when they leak. You manage subscriptions.
-
-That works fine when a developer is in the loop.
-
-**But AI agents can't sign up. They can't manage API keys. They can't complete OAuth flows. And they're about to become the largest consumers of APIs on the internet.**
-
-The entire model breaks.
+**Live:** [steller-web.vercel.app](https://steller-web.vercel.app) · **Recipient:** [`GALXP6IQ…OOZ`](https://stellar.expert/explorer/public/account/GALXP6IQ26WKGOE74YMWKWB5YNU25TY2PSNZ3QIES7FJMGA6R4HB5OOZ)
 
 ---
 
-## AgentMarket: Payment IS Authentication
+## What it is, in one breath
 
-AgentMarket is an API marketplace where the payment transaction *is* the credential. No accounts. No API keys. No subscriptions. No human required.
-
-An AI agent discovers an API, pays for it in **XLM on Stellar mainnet**, and receives data — in a single autonomous round trip. The on-chain transaction hash is the proof. Nothing else is needed.
+An AI agent makes an HTTP call. The server replies `402 Payment Required` with a Stellar address and an XLM amount. The agent pays. The agent retries with the tx hash. The server verifies on-chain and returns data. **No accounts, no API keys, no humans in the loop. And it's live on mainnet today.**
 
 ```
-Every other marketplace:        AgentMarket:
-
-  Agent                           Agent
-    │                               │
-    │  "I need weather data"        │  GET /api/proxy/weather
-    │                               │◀── 402 + { recipient, amount: "0.001 XLM" }
-    ✗  Can't sign up               │
-    ✗  Can't get API key           │  [pays 0.001 XLM on Stellar mainnet]
-    ✗  Can't manage billing        │
-    ✗  Can't complete OAuth        │  GET /api/proxy/weather
-                                   │  X-Payment-Proof: <txHash>
-                                   │──▶ 200 OK + { data }
-                                   
-                                   Done. No account ever created.
+Agent ──GET /api/proxy/stock-analyst──▶ Server
+      ◀──402 { 0.1 XLM → GALXP6IQ…OOZ, mainnet }──
+      ──pays 0.1 XLM on Stellar mainnet──▶ Horizon
+      ──GET + X-Payment-Proof: <txHash>──▶ Server
+      ◀──200 { sentiment: "bullish", price: 195.23 }──
 ```
 
 ---
 
-## Why Stellar Makes This Possible
+## Why we win the category
 
-This is not "Stellar for billing." Stellar is the reason this works at all.
+Every competitor will build "AI agents pay for APIs." That's table stakes. The wedge is this: **AgentMarket is the only marketplace where one AI agent pays another AI agent — and captures a margin doing it.**
 
-| What agents need | Why Stellar delivers it |
-|---|---|
-| Sub-cent payments per API call | XLM fees are fractions of a cent — no other L1 makes $0.001 payments economical |
-| 5-second settlement | Agents can't wait 10 minutes for a block — Stellar settles in ~5s |
-| No gas uncertainty | Fixed, predictable fees — an agent can calculate cost before paying |
-| Programmable spending limits | Soroban smart contracts enforce on-chain budget caps — no server trust required |
-| Verifiable on-chain proof | Any node can verify the payment — no proprietary payment oracle needed |
+| | The clones | **AgentMarket** |
+|---|:---:|:---:|
+| Pay-per-call APIs for agents | ✓ | ✓ |
+| **Agent-to-Agent (A2A) composition** — agents priced as services other agents consume | ✗ | **✓** |
+| Live on **mainnet** today (not testnet demo) | ✗ | **✓** |
+| **Native XLM** payments — no trustlines, no asset issuers, sub-second finality | ✗ | **✓** |
+| Payment IS authentication — zero credentials issued, ever | ✗ | **✓** |
+| Provider lists an API and earns XLM in the same minute — no review, no payout cycle | ✗ | **✓** |
+| Verifiable on Stellar Horizon by anyone, no proprietary oracle | ✗ | **✓** |
 
-Traditional payment rails charge more in fees than the entire transaction is worth. Stellar makes micropayments real.
-
----
-
-## The x402 Protocol
-
-AgentMarket implements **x402** — an open protocol that extends HTTP with payment semantics. It requires no new infrastructure, no wallet SDKs on the server, and no proprietary payment layer. Just HTTP.
-
-```
-Agent                        AgentMarket Server               Stellar Mainnet
-  │                                  │                               │
-  │── GET /api/proxy/stock-analyst ─▶│                               │
-  │                                  │                               │
-  │◀── HTTP 402 Payment Required ────│                               │
-  │    {                             │                               │
-  │      recipient: "GABC...XYZ",    │                               │
-  │      amount: "0.005",            │                               │
-  │      currency: "XLM",            │                               │
-  │      network: "mainnet"          │                               │
-  │    }                             │                               │
-  │                                  │                               │
-  │── send 0.005 XLM ───────────────────────────────────────────────▶│
-  │◀──────────────────────── txHash ───────────────────────────────-─│
-  │                                  │                               │
-  │── GET /api/proxy/stock-analyst ─▶│                               │
-  │   X-Payment-Proof: <txHash>      │                               │
-  │                                  │── verify tx on Horizon ──────▶│
-  │                                  │◀── confirmed ─────────────────│
-  │                                  │                               │
-  │◀── 200 OK ───────────────────────│                               │
-  │    {                             │                               │
-  │      symbol: "AAPL",             │                               │
-  │      sentiment: "bullish",       │                               │
-  │      price: 195.23,              │                               │
-  │      reason: "Up 2.1%..."        │                               │
-  │    }                             │                               │
-```
-
-The agent is fully autonomous. No human touched a keyboard.
+A marketplace of APIs is a directory. **A marketplace of agents that pay each other is an economy.**
 
 ---
 
-## Marketplace APIs
+## Agent-to-Agent in action
 
-| API | What it does | Price |
-|-----|-------------|:-----:|
-| **Stock Analyst** | Live price from Yahoo Finance + Gemini AI sentiment (bullish / bearish / neutral) | 0.005 XLM |
-| **AI Inference** | Gemini-powered text generation and reasoning | 0.005 XLM |
-| **News** | Real-time headlines by topic | 0.002 XLM |
-| **Weather** | Current conditions and forecast by city | 0.001 XLM |
-| **Air Quality** | AQI, PM2.5, and pollution data | 0.001 XLM |
-| **Currency** | Live exchange rates for 170+ currencies | 0.001 XLM |
-| **Geolocation** | IP to country, city, lat/lon | 0.001 XLM |
+We ship two agents on day one to prove the composition story:
 
-Anyone can list an API. Providers register at the dashboard and immediately get a live `402` endpoint — no code deployment, no approval process.
+| Agent | What it does | Price | Margin source |
+|---|---|:---:|---|
+| 🟦 **Stock Analyst** | Live Yahoo Finance data + Gemini sentiment (bullish / bearish / neutral + reason) | **0.1 XLM** | Raw data layer |
+| 🟪 **Trading Advisor** | Two-stage Gemini reasoning → BUY/HOLD/SELL with entry, exit, stop-loss, risk, confidence | **0.5 XLM** | **Pays Stock Analyst for data, captures 5× margin on judgement** |
 
----
+`Trading Advisor` is not an API. It is an **autonomous service** that an orchestrator agent can call — and the orchestrator never knows or cares whether Trading Advisor was built by us, by a hedge fund, or by another agent. It pays in XLM and gets a recommendation. That's the agent economy.
 
-## On-Chain Budget Enforcement via Soroban
-
-What happens when an AI agent goes rogue and starts spending?
-
-With a traditional API key — you discover the damage on your next billing statement.
-
-With AgentMarket — a **Soroban smart contract** enforces spending limits *before the payment clears*.
-
-```rust
-// contracts/budget-enforcer/src/lib.rs
-// The contract enforces these limits — not a server promise, on-chain law:
-
-per_call_limit:   max XLM per single API call
-session_limit:    max XLM total in this session
-provider_limit:   max XLM to any one provider
-global_limit:     absolute ceiling — agent cannot spend past this
-```
-
-Deploy the contract, configure the limits, hand the agent its keypair. The contract does the rest. No backend, no monitoring dashboard, no alerts at 3am.
-
-**This is the only API marketplace where spending limits are enforced by code on a blockchain.**
+Anyone can list a new agent and immediately become a node in this graph.
 
 ---
 
-## Quick Start
+## Why Stellar, specifically
 
-### For AI Agents — SDK
+This isn't "Stellar for billing." Stellar is the only L1 where this design is economically real:
+
+- **Sub-cent fees** — a 0.1 XLM API call costs the agent ~$0.04 plus a fraction of a cent in network fee. On any EVM chain the gas alone would cost more than the API.
+- **~5 second finality** — agents can't wait for 12 confirmations. A retry-with-proof loop has to be sub-10s.
+- **Native asset, no trustlines** — XLM is the gas *and* the unit of account. No ERC-20 approvals, no token bridges, no wrapped assets.
+- **Deterministic fees** — agents can pre-compute cost. No gas auctions, no MEV.
+- **Horizon REST API** — payment verification is a single HTTPS call. No node infrastructure, no indexer, no Web3 RPC contract.
+
+---
+
+## Use it now
+
+### As an agent (TypeScript SDK)
 
 ```bash
 npm install agstell-sdk
@@ -156,190 +82,187 @@ npm install agstell-sdk
 import { AgentMarket } from 'agstell-sdk';
 
 const agent = new AgentMarket({
-  secretKey: process.env.STELLAR_SECRET_KEY,  // agent's Stellar wallet
-  network: 'mainnet',
-  baseUrl: 'https://steller-web.vercel.app',
+  secretKey: process.env.STELLAR_SECRET_KEY,  // starts with S
+  // network defaults to 'mainnet'
 });
 
-// The agent pays automatically — zero extra code
-const stock = await agent.get('stock-analyst', { symbol: 'NVDA' });
-// { symbol: 'NVDA', sentiment: 'bullish', price: 875.40, reason: 'Up 3.2%...' }
-// Cost: 0.005 XLM. Paid. On-chain. Verified. Done.
+const result = await agent.stockAnalyst('AAPL');
+// → { symbol: 'AAPL', sentiment: 'bullish', price: 195.23, reason: '...' }
+// → 0.1 XLM paid on mainnet, txHash in result.metadata
 
-const weather = await agent.get('weather', { city: 'San Francisco' });
-// Cost: 0.001 XLM
-
-const news = await agent.get('news', { topic: 'AI' });
-// Cost: 0.002 XLM
+const advice = await agent.tradingAdvisor('NVDA');
+// → { action: 'BUY', confidence: 78, entryTarget: 875.40, stopLoss: 842.10 }
+// → 0.5 XLM paid — Trading Advisor internally pays Stock Analyst for data
 ```
 
-### For Developers — CLI
+### As a developer (CLI)
 
 ```bash
 npm install -g agstell-cli
-
-agentmarket init --generate   # create a Stellar keypair
-agentmarket fund              # fund from faucet (testnet) or transfer XLM (mainnet)
-agentmarket list              # browse the marketplace
-agentmarket call stock-analyst -p '{"symbol":"TSLA"}'
 ```
 
-### Raw HTTP — Any Language, Any Agent
+```powershell
+# Works on PowerShell (Windows), bash (Mac/Linux), and zsh
+
+# 1. Generate a wallet — copy the secret key printed
+agentmarket init --generate
+
+# 2. Fund the wallet with XLM on mainnet (any Stellar exchange, min 5 XLM)
+
+# 3. Initialize with your secret key
+agentmarket init -k YOUR_STELLAR_SECRET_KEY
+
+# 4. Check balance
+agentmarket balance
+
+# 5. Browse available APIs
+agentmarket list
+
+# 6. See required params before paying (never lose XLM on a bad call)
+agentmarket info stock-analyst
+
+# 7. Call an API — payment happens automatically
+agentmarket call stock-analyst --symbol AAPL     # 0.1 XLM
+agentmarket call trading-advisor --symbol NVDA   # 0.5 XLM
+
+# 8. View call history
+agentmarket history
+```
+
+> **Note for PowerShell users:** use `--symbol` flags instead of `-p '{...}'` — PowerShell passes single-quoted JSON incorrectly to native commands.
+
+### As anything that speaks HTTP
 
 ```bash
-# Works from curl, Python requests, Go http, anything that speaks HTTP
+# 1. Discover available APIs and prices
+curl https://steller-web.vercel.app/api/agents/discover
+# → { paymentAsset: "XLM", paymentNetwork: "mainnet", total: 5, apis: [...] }
 
-# 1. Hit the endpoint — get the price
+# 2. Hit an endpoint — server returns 402
 curl -i "https://steller-web.vercel.app/api/proxy/stock-analyst?symbol=AAPL"
 # HTTP/1.1 402 Payment Required
-# {"recipient":"GABC...","amount":"0.005","currency":"XLM","network":"mainnet"}
+# { "payment": { "recipient": "GALXP6IQ...", "amount": "0.1", "currency": "XLM", "network": "mainnet" } }
 
-# 2. Pay on Stellar, get the txHash
+# 3. Pay on Stellar mainnet using Horizon (or any Stellar wallet)
+#    → you get a txHash
 
-# 3. Retry with proof — get the data
-curl -H "X-Payment-Proof: <txHash>" \
-     "https://steller-web.vercel.app/api/proxy/stock-analyst?symbol=AAPL"
-# {"symbol":"AAPL","sentiment":"bullish","price":195.23,"reason":"..."}
+# 4. Retry with proof
+curl -H "X-Payment-Proof: YOUR_TX_HASH" \
+  "https://steller-web.vercel.app/api/proxy/stock-analyst?symbol=AAPL"
+# → { "symbol": "AAPL", "sentiment": "bullish", "price": 195.23, "reason": "..." }
 ```
 
 ---
 
-## For API Providers
+## Test it yourself — copy-paste commands
 
-Register any JSON API and start earning XLM in minutes.
+> **Prerequisites:** Node.js 18+, a funded Stellar mainnet wallet (get XLM on any exchange)
+
+### Option A — CLI (quickest, works on PowerShell + bash)
+
+```powershell
+npm install -g agstell-cli
+
+agentmarket init -k YOUR_STELLAR_SECRET_KEY
+agentmarket balance
+agentmarket list
+agentmarket info stock-analyst
+
+agentmarket call stock-analyst --symbol AAPL     # 0.1 XLM
+agentmarket call trading-advisor --symbol NVDA   # 0.5 XLM
+
+agentmarket history
+```
+
+### Option B — SDK script
+
+```bash
+npm install agstell-sdk
+```
+
+```typescript
+// test-sdk.ts
+import { AgentMarket } from 'agstell-sdk';
+
+const agent = new AgentMarket({ secretKey: 'YOUR_SECRET_KEY' });
+
+console.log('Balance:', await agent.getBalance());
+
+const r = await agent.stockAnalyst('AAPL');
+console.log('Sentiment:', r.data?.sentiment);
+console.log('TX:', r.metadata?.txHash);
+console.log('Paid:', r.metadata?.cost, 'XLM');
+```
+
+### Option C — curl (raw x402 flow)
+
+```bash
+# Step 1: trigger the 402
+curl -i "https://steller-web.vercel.app/api/proxy/stock-analyst?symbol=AAPL"
+
+# Step 2: send 0.1 XLM to the recipient shown → copy txHash from Stellar explorer
+
+# Step 3: retry with proof
+curl -H "X-Payment-Proof: YOUR_TX_HASH" \
+  "https://steller-web.vercel.app/api/proxy/stock-analyst?symbol=AAPL"
+```
+
+### Option D — run the E2E test suite
+
+```bash
+# Tests 1-6 run without a wallet (discover, 402 gate, provider dashboard, etc.)
+# Tests 7-8 require a funded CLI wallet (agentmarket init -k YOUR_KEY)
+node test-e2e.mjs
+```
+
+---
+
+## List your own agent in 60 seconds
 
 ```bash
 curl -X POST https://steller-web.vercel.app/api/providers/register \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "My Data API",
-    "description": "Real-time data for agents",
-    "price": 0.002,
-    "upstreamUrl": "https://myapi.com/data",
-    "walletAddress": "GYOUR...STELLAR...ADDRESS"
+    "providerName": "My Company",
+    "stellarAddress": "GYOUR_STELLAR_PUBLIC_KEY",
+    "apiName": "My Trading Bot",
+    "description": "Returns BUY/SELL signals for crypto",
+    "category": "FINANCE",
+    "priceXlm": 0.25,
+    "endpoint": "https://my-agent.com/predict",
+    "method": "GET",
+    "params": [
+      { "name": "symbol", "type": "string", "required": true, "description": "Ticker symbol" }
+    ]
   }'
+# → { "success": true, "api": { "slug": "my-trading-bot", "endpoint": "/api/proxy/my-trading-bot" } }
 ```
 
-That's it. Your API immediately appears in the marketplace with a live `402` endpoint. Every agent call pays your Stellar wallet directly — no invoices, no monthly payouts, no payment processor.
-
-The provider dashboard shows real-time call counts, revenue, and health status.
+Live `402` endpoint instantly. Every call earns XLM directly to your Stellar wallet — no payouts, no invoices, no payment processor.
 
 ---
 
-## Architecture
+## Stack
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        AI Agent                                  │
-│               (any language, any framework)                     │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │  HTTP + x402
-                           ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     AgentMarket Backend                          │
-│                    (Next.js · AWS EC2)                           │
-│                                                                  │
-│  /api/proxy/[slug]        withX402Payment middleware             │
-│  /api/marketplace         Catalog: curated + DB-backed          │
-│  /api/providers/register  Provider self-service                  │
-│  /api/provider/dashboard  Earnings, calls, health               │
-└────────────────┬─────────────────────────┬───────────────────────┘
-                 │                         │
-                 ▼                         ▼
-    ┌────────────────────┐    ┌─────────────────────────┐
-    │   Stellar Horizon  │    │    Upstream APIs         │
-    │   (mainnet)        │    │  Yahoo Finance, Gemini,  │
-    │  verify tx proof   │    │  Weather, News, ...      │
-    └────────────────────┘    └─────────────────────────┘
-                 │
-                 ▼
-    ┌────────────────────┐
-    │  Soroban Contract  │
-    │  budget-enforcer   │
-    │  (on-chain limits) │
-    └────────────────────┘
-```
-
-```
-agentmarket/           Backend — paid API enforcement + marketplace
-web/                   Frontend — marketplace UI + provider dashboard
-agentmarket-sdk/       TypeScript SDK (npm: agstell-sdk)
-cli/                   CLI wallet and testing surface
+agentmarket/         x402 enforcement, marketplace, provider dashboard   (Next.js · EC2)
+web/                 Public site, demo, marketplace UI                   (Next.js · Vercel)
+agentmarket-sdk/     TypeScript client — auto-handles x402              (npm: agstell-sdk)
+cli/                 Wallet + discovery + paid call CLI                  (Node)
 contracts/
-└── budget-enforcer/   Soroban smart contract (Rust) — on-chain budget caps
+  budget-enforcer/   Soroban contract — on-chain agent spend caps        (Rust)
 ```
 
 ---
 
-## What Makes This Different
+## The thesis
 
-| Capability | Traditional API Marketplace | AgentMarket |
-|---|:---:|:---:|
-| Requires account signup | Yes | **No** |
-| Issues API keys | Yes | **No — ever** |
-| Works for autonomous agents | No | **Yes** |
-| Sub-cent micropayments | No (fees too high) | **Yes — XLM** |
-| On-chain budget enforcement | No | **Yes — Soroban** |
-| Payment verifiable by anyone | No | **Yes — Stellar Horizon** |
-| Provider earns instantly | No (monthly payout) | **Yes — per call** |
-| 5-second settlement | No | **Yes — Stellar** |
+AI agents are about to become the largest consumers of APIs on the internet. The current API economy was designed for humans clicking "Sign up" and copy-pasting keys. None of that survives the agent transition.
+
+Agents need a payment rail with sub-cent fees, deterministic cost, and zero account state. They need to be able to consume *and* offer services without a human in the loop. They need to compose — to call other agents and earn margin from doing it better.
+
+That rail is Stellar. That marketplace is AgentMarket.
 
 ---
 
-## Roadmap
-
-- [x] x402 payment middleware — payment as authentication
-- [x] Curated paid routes: Stock Analyst, AI, Weather, News, Currency, Geolocation, Air Quality
-- [x] TypeScript SDK (`agstell-sdk`) with automatic x402 payment handling
-- [x] CLI — wallet setup, discovery, paid calls
-- [x] Provider self-service registration
-- [x] Generic DB-backed proxy for provider-registered APIs
-- [x] Marketplace catalog with health status badges
-- [x] Provider dashboard — earnings, call counts, API health
-- [x] Soroban budget-enforcer smart contract (Rust)
-- [x] Deployed: Vercel (frontend) + AWS EC2 (backend)
-- [ ] Mainnet XLM payments live (wallet funded, migration in progress)
-- [ ] Soroban budget enforcement activated in production
-
----
-
-## Development
-
-```bash
-# Backend
-cd agentmarket
-cp .env.example .env   # STELLAR_WALLET_PUBLIC, GEMINI_API_KEY, DATABASE_URL
-npm install && npm run dev   # :3001
-
-# Frontend
-cd web
-cp .env.example .env   # AGENTMARKET_BACKEND_URL=http://localhost:3001
-npm install && npm run dev   # :3000
-```
-
-**Verify:**
-```bash
-cd agentmarket-sdk && npm run typecheck && npm run test:run
-cd agentmarket    && npx tsc --noEmit && npm run lint && npm run build
-cd web            && npx tsc --noEmit && npm run lint && npm run build
-```
-
----
-
-## The Bigger Picture
-
-We are entering a world where AI agents outnumber human developers as API consumers. They need an economic layer that works without human intervention — one where access is earned through payment, spending is enforced on-chain, and no credential can be leaked because no credential was ever issued.
-
-That's what Stellar makes possible. That's what AgentMarket builds.
-
-**The agent economy needs Stellar. AgentMarket is the marketplace.**
-
----
-
-## License
-
-MIT — see [LICENSE](LICENSE)
-
----
-
-*Built on Stellar mainnet · x402 protocol · Soroban smart contracts*
+MIT · Built on Stellar mainnet · x402 · Soroban

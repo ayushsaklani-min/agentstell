@@ -14,7 +14,8 @@ interface ProviderRegistrationRequest {
   longDescription?: string
   endpoint: string
   category: string
-  priceUsdc: number
+  priceXlm?: number
+  priceUsdc?: number   // legacy alias — treated as XLM amount
   method?: string
   // Capability spec fields
   contentType?: string
@@ -33,25 +34,19 @@ const VALID_LATENCY_HINTS = new Set(['fast', 'medium', 'slow'])
 const ENDPOINT_PROBE_TIMEOUT_MS = 8000
 
 // Stellar network config for wallet readiness checks
-const STELLAR_NETWORK = (process.env.STELLAR_NETWORK || 'testnet') as 'testnet' | 'mainnet'
+const STELLAR_NETWORK = (process.env.STELLAR_NETWORK || 'mainnet') as 'testnet' | 'mainnet'
 const HORIZON_URLS = {
   testnet: 'https://horizon-testnet.stellar.org',
   mainnet: 'https://horizon.stellar.org',
 }
-const USDC_ISSUERS = {
-  testnet: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
-  mainnet: 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN',
-}
 
 interface WalletReadiness {
   exists: boolean
-  hasUsdcTrustline: boolean
   error?: string
 }
 
 async function checkWalletReadiness(stellarAddress: string): Promise<WalletReadiness> {
   const horizonUrl = HORIZON_URLS[STELLAR_NETWORK]
-  const usdcIssuer = USDC_ISSUERS[STELLAR_NETWORK]
 
   try {
     const res = await fetch(`${horizonUrl}/accounts/${stellarAddress}`, {
@@ -59,24 +54,18 @@ async function checkWalletReadiness(stellarAddress: string): Promise<WalletReadi
     })
 
     if (res.status === 404) {
-      return { exists: false, hasUsdcTrustline: false, error: `Stellar account ${stellarAddress.slice(0, 8)}… does not exist on ${STELLAR_NETWORK}. Fund it first.` }
+      return { exists: false, error: `Stellar account ${stellarAddress.slice(0, 8)}… does not exist on ${STELLAR_NETWORK}. Fund it first.` }
     }
 
     if (!res.ok) {
-      return { exists: false, hasUsdcTrustline: false, error: `Horizon returned ${res.status} when checking account` }
+      return { exists: false, error: `Horizon returned ${res.status} when checking account` }
     }
 
-    const account = await res.json() as { balances: Array<{ asset_type: string; asset_code?: string; asset_issuer?: string }> }
-
-    const hasUsdc = account.balances.some(
-      (b) => b.asset_type === 'credit_alphanum4' && b.asset_code === 'USDC' && b.asset_issuer === usdcIssuer
-    )
-
-    return { exists: true, hasUsdcTrustline: hasUsdc, error: hasUsdc ? undefined : `Account exists but has no USDC trustline on ${STELLAR_NETWORK}. Add a trustline to USDC (issuer ${usdcIssuer.slice(0, 8)}…) before registering.` }
+    return { exists: true }
   } catch (err) {
     // Network issues shouldn't block registration — just warn
     console.warn('Wallet readiness check failed (non-blocking):', err)
-    return { exists: true, hasUsdcTrustline: true }
+    return { exists: true }
   }
 }
 
@@ -199,7 +188,8 @@ export async function POST(request: NextRequest) {
       longDescription,
       endpoint,
       category,
-      priceUsdc,
+      priceXlm,
+      priceUsdc: priceUsdcLegacy,
       method,
       // Capability spec
       contentType,
@@ -212,6 +202,9 @@ export async function POST(request: NextRequest) {
       latencyHint,
       idempotent,
     } = body
+
+    // Resolve price — accept priceXlm (preferred) or legacy priceUsdc alias
+    const priceUsdc = priceXlm ?? priceUsdcLegacy
 
     // ── Required field validation ──
     if (
@@ -231,7 +224,7 @@ export async function POST(request: NextRequest) {
 
     if (priceUsdc <= 0) {
       return NextResponse.json(
-        { error: 'priceUsdc must be greater than zero' },
+        { error: 'priceXlm must be greater than zero' },
         { status: 400 }
       )
     }
@@ -253,17 +246,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ── Wallet readiness: account exists + USDC trustline ──
+    // ── Wallet readiness: account must exist on Stellar mainnet ──
     const wallet = await checkWalletReadiness(stellarAddress)
     if (!wallet.exists) {
       return NextResponse.json(
         { error: wallet.error ?? 'Provider wallet does not exist on the Stellar network' },
-        { status: 422 }
-      )
-    }
-    if (!wallet.hasUsdcTrustline) {
-      return NextResponse.json(
-        { error: wallet.error ?? 'Provider wallet lacks a USDC trustline' },
         { status: 422 }
       )
     }

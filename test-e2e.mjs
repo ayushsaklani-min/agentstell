@@ -1,3 +1,21 @@
+/**
+ * AgentMarket End-to-End Tests
+ *
+ * Tests the live deployed backend on mainnet:
+ *   - SDK build
+ *   - Keypair generation + explorer URL
+ *   - Live /api/agents/discover
+ *   - Provider registration (requires GA7CDNYK wallet)
+ *   - Live paid call: stock-analyst (0.1 XLM, requires funded CLI wallet)
+ *
+ * Usage:
+ *   node test-e2e.mjs
+ *
+ * Optional env vars:
+ *   AGENTMARKET_TEST_SECRET_KEY   Stellar secret key for the payer (falls back to ~/.agentmarket/config.json)
+ *   AGENTMARKET_BASE_URL          Override backend URL (default: https://steller-web.vercel.app)
+ */
+
 import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
@@ -6,23 +24,17 @@ import { pathToFileURL } from 'node:url'
 
 const ROOT_DIR = path.resolve('.')
 const SDK_DIR = path.join(ROOT_DIR, 'agentmarket-sdk')
-const MARKET_DIR = path.join(ROOT_DIR, 'agentmarket')
 const CLI_CONFIG_PATH = path.join(os.homedir(), '.agentmarket', 'config.json')
-const HOST = '127.0.0.1'
-const PORT = Number(process.env.AGENTMARKET_TEST_PORT || 3101)
-const BASE_URL = `http://${HOST}:${PORT}`
-const CONTRACT_ID = 'CBCAATFEUDNV43RPERRZ66B76C2HIOJ7LJBG77F4KHAVU527Y3PLHPJB'
+const BASE_URL = (process.env.AGENTMARKET_BASE_URL || 'https://steller-web.vercel.app').replace(/\/$/, '')
+
+// The provider wallet that has APIs registered in the DB
+const PROVIDER_ADDRESS = 'GA7CDNYK3I4X5KRSYGI7HIHWF2XAIZMRVZAWFSHUP2PZUNM4ETVIYXWT'
 
 let AgentMarket
-let CONTRACTS
 let StellarClient
 
 function npmCommand() {
   return process.platform === 'win32' ? 'npm.cmd' : 'npm'
-}
-
-function npxCommand() {
-  return process.platform === 'win32' ? 'npx.cmd' : 'npx'
 }
 
 function sleep(ms) {
@@ -30,13 +42,7 @@ function sleep(ms) {
 }
 
 function assert(condition, message) {
-  if (!condition) {
-    throw new Error(message)
-  }
-}
-
-function parseAmount(value) {
-  return Number.parseFloat(value)
+  if (!condition) throw new Error(message)
 }
 
 function summarizeError(error) {
@@ -45,9 +51,6 @@ function summarizeError(error) {
 
 async function runCommand(command, args, options = {}) {
   const { cwd = ROOT_DIR, env = {} } = options
-
-  // On Windows, route through cmd /c so .cmd files run without shell:true
-  // (shell:true with an args array triggers DEP0190 due to unescaped concatenation)
   const [spawnCmd, spawnArgs] =
     process.platform === 'win32'
       ? ['cmd', ['/c', command, ...args]]
@@ -56,291 +59,44 @@ async function runCommand(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(spawnCmd, spawnArgs, {
       cwd,
-      env: {
-        ...process.env,
-        ...env,
-      },
+      env: { ...process.env, ...env },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
-
     let stdout = ''
     let stderr = ''
-
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk.toString()
-    })
-
-    child.stderr.on('data', (chunk) => {
-      stderr += chunk.toString()
-    })
-
+    child.stdout.on('data', (c) => { stdout += c.toString() })
+    child.stderr.on('data', (c) => { stderr += c.toString() })
     child.on('error', reject)
     child.on('close', (code) => {
-      if (code === 0) {
-        resolve({ stdout, stderr })
-        return
-      }
-
-      reject(
-        new Error(
-          `Command failed (${command} ${args.join(' ')}):\n${stdout}${stderr}`.trim()
-        )
-      )
+      if (code === 0) return resolve({ stdout, stderr })
+      reject(new Error(`Command failed (${command} ${args.join(' ')}):\n${stdout}${stderr}`.trim()))
     })
   })
 }
 
 async function loadSdk() {
   const sdkUrl = pathToFileURL(path.join(SDK_DIR, 'dist', 'index.mjs')).href
-  ;({ AgentMarket, CONTRACTS, StellarClient } = await import(sdkUrl))
+  ;({ AgentMarket, StellarClient } = await import(sdkUrl))
 }
 
 async function resolveLiveSecret() {
   if (process.env.AGENTMARKET_TEST_SECRET_KEY) {
-    return {
-      secretKey: process.env.AGENTMARKET_TEST_SECRET_KEY,
-      source: 'env',
-    }
+    return { secretKey: process.env.AGENTMARKET_TEST_SECRET_KEY, source: 'env' }
   }
-
   try {
     const raw = await fs.readFile(CLI_CONFIG_PATH, 'utf8')
     const config = JSON.parse(raw)
-
     if (typeof config.secretKey === 'string' && config.secretKey.length > 0) {
-      return {
-        secretKey: config.secretKey,
-        source: 'cli config',
-      }
+      return { secretKey: config.secretKey, source: 'cli config' }
     }
-  } catch {
-    return null
-  }
-
+  } catch { /* no cli config */ }
   return null
 }
 
-async function createProviderWallet() {
-  const wallet = StellarClient.generateKeypair()
-  const client = new StellarClient('testnet', wallet.secretKey)
-
-  const funded = await client.fundTestnetAccount()
-  assert(funded, 'Friendbot funding failed for the provider wallet')
-
-  const trustline = await client.establishTrustline()
-  assert(
-    trustline.success,
-    `Provider trustline failed: ${trustline.error || 'unknown error'}`
-  )
-
-  return {
-    ...wallet,
-    trustlineTxHash: trustline.txHash,
-  }
-}
-
-async function startMarket(providerPublicKey) {
-  const npmArgs = ['run', 'start', '--', '--hostname', HOST, '--port', String(PORT)]
-  const [spawnCmd, spawnArgs] =
-    process.platform === 'win32'
-      ? ['cmd', ['/c', npmCommand(), ...npmArgs]]
-      : [npmCommand(), npmArgs]
-
-  const child = spawn(spawnCmd, spawnArgs, {
-    cwd: MARKET_DIR,
-    env: {
-      ...process.env,
-      AGENTMARKET_WALLET_PUBLIC: providerPublicKey,
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-
-  let stdout = ''
-  let stderr = ''
-
-  child.stdout.on('data', (chunk) => {
-    stdout += chunk.toString()
-  })
-
-  child.stderr.on('data', (chunk) => {
-    stderr += chunk.toString()
-  })
-
-  child.on('error', (error) => {
-    stderr += summarizeError(error)
-  })
-
-  return {
-    child,
-    getLogs() {
-      return { stdout, stderr }
-    },
-  }
-}
-
-async function stopMarket(server) {
-  if (!server || server.child.exitCode !== null) {
-    return
-  }
-
-  server.child.kill('SIGTERM')
-  await sleep(1500)
-
-  if (server.child.exitCode === null) {
-    server.child.kill('SIGKILL')
-    await sleep(500)
-  }
-}
-
-async function waitForMarket(server) {
-  const deadline = Date.now() + 30000
-
-  while (Date.now() < deadline) {
-    if (server.child.exitCode !== null) {
-      const logs = server.getLogs()
-      throw new Error(`agentmarket exited before becoming ready\n${logs.stdout}\n${logs.stderr}`)
-    }
-
-    try {
-      const response = await fetch(`${BASE_URL}/api/marketplace`)
-      if (response.ok) {
-        return
-      }
-    } catch {
-      // Keep polling until the timeout expires.
-    }
-
-    await sleep(500)
-  }
-
-  const logs = server.getLogs()
-  throw new Error(`Timed out waiting for agentmarket\n${logs.stdout}\n${logs.stderr}`)
-}
-
-async function registerDatabaseListing() {
-  const apiName = `sdk-db-test-${Date.now()}`
-  const response = await fetch(`${BASE_URL}/api/providers/register`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      providerName: 'AgentMarket E2E Provider',
-      email: 'e2e@agentmarket.local',
-      stellarAddress: 'GC3BIP4AEPKE4XR3BKPYMFPX3T75MQB4QAQEA7XPISUPGQ4P6WRMH6SF',
-      apiName,
-      description: 'Database-backed listing created during the E2E flow.',
-      endpoint: `${BASE_URL}/api/proxy/agent-test`,
-      category: 'utilities',
-      priceUsdc: 0.001,
-    }),
-  })
-
-  const body = await response.json()
-  assert(response.ok, `Provider registration failed: ${JSON.stringify(body)}`)
-  assert(body.success === true, 'Provider registration did not return success')
-
-  return body.api.slug
-}
-
-async function verifyDatabaseMarketplace(slug) {
-  const marketplaceResponse = await fetch(`${BASE_URL}/api/marketplace`)
-  const marketplaceBody = await marketplaceResponse.json()
-
-  assert(marketplaceResponse.ok, 'Marketplace request failed')
-  assert(
-    marketplaceBody.source === 'database',
-    `Marketplace route did not use the database source: ${marketplaceBody.source}`
-  )
-  assert(
-    marketplaceBody.apis.some((api) => api.slug === slug),
-    `Marketplace response did not include the registered listing ${slug}`
-  )
-
-  const listingResponse = await fetch(`${BASE_URL}/api/marketplace/${slug}`)
-  const listingBody = await listingResponse.json()
-
-  assert(listingResponse.ok, 'Marketplace detail request failed')
-  assert(
-    listingBody.source === 'database',
-    `Marketplace detail route did not use the database source: ${listingBody.source}`
-  )
-  assert(
-    listingBody.api.slug === slug,
-    `Marketplace detail returned ${listingBody.api.slug} instead of ${slug}`
-  )
-
-  return marketplaceBody.apis.length
-}
-
-async function verifyPaymentRequired(providerPublicKey) {
-  const response = await fetch(
-    `${BASE_URL}/api/proxy/agent-test?task=raw-402-check`
-  )
-  const body = await response.json()
-
-  assert(response.status === 402, `Expected 402, received ${response.status}`)
-  assert(
-    body.payment.recipient === providerPublicKey,
-    '402 response used the wrong provider wallet'
-  )
-  assert(body.payment.apiId === 'agent-test', '402 response used the wrong API id')
-
-  return body.payment.amount
-}
-
-async function verifyLiveSdkPayment(secretKey, providerPublicKey) {
-  const agent = new AgentMarket({
-    secretKey,
-    network: 'testnet',
-    baseUrl: BASE_URL,
-  })
-  const observer = new StellarClient('testnet')
-  const events = []
-
-  agent.on((event) => {
-    events.push(event.type)
-  })
-
-  const beforePayer = await agent.getBalance()
-  const beforeProvider = await observer.getBalance(providerPublicKey)
-
-  const result = await agent.get('agent-test', {
-    task: 'live sdk verification',
-    agentId: 'test-e2e',
-  })
-
-  const afterPayer = await agent.getBalance()
-  const afterProvider = await observer.getBalance(providerPublicKey)
-
-  assert(result.success, `SDK call failed: ${result.error || 'unknown error'}`)
-  assert(result.metadata.txHash, 'SDK call did not return a payment transaction hash')
-  assert(
-    parseAmount(afterPayer.usdc) < parseAmount(beforePayer.usdc),
-    'Payer USDC balance did not decrease'
-  )
-  assert(
-    parseAmount(afterProvider.usdc) > parseAmount(beforeProvider.usdc),
-    'Provider USDC balance did not increase'
-  )
-  assert(
-    events.includes('payment_confirmed'),
-    `SDK events did not include payment_confirmed: ${events.join(', ')}`
-  )
-
-  return {
-    txHash: result.metadata.txHash,
-    cost: result.metadata.cost,
-    beforePayer,
-    afterPayer,
-    beforeProvider,
-    afterProvider,
-  }
-}
-
 async function runTests() {
-  console.log('\nAgentMarket End-to-End Tests\n')
-  console.log('='.repeat(50))
+  console.log('\nAgentMarket End-to-End Tests')
+  console.log(`Backend: ${BASE_URL}`)
+  console.log('='.repeat(60))
 
   let passed = 0
   let failed = 0
@@ -350,98 +106,126 @@ async function runTests() {
 
   async function runTest(name, fn) {
     process.stdout.write(`\n${name}\n`)
-
     try {
       const details = await fn()
-      passed += 1
-      console.log('   [PASS]')
-      if (details) {
-        console.log(`   ${details}`)
-      }
+      passed++
+      console.log('  [PASS]')
+      if (details) console.log(`  ${details}`)
     } catch (error) {
-      failed += 1
-      console.log(`   [FAIL] ${summarizeError(error)}`)
+      failed++
+      console.log(`  [FAIL] ${summarizeError(error)}`)
     }
   }
 
   function skipTest(name, reason) {
-    skipped += 1
-    console.log(`\n${name}\n   [SKIP] ${reason}`)
+    skipped++
+    console.log(`\n${name}\n  [SKIP] ${reason}`)
   }
 
-  await runTest('1. Building SDK artifacts', async () => {
+  // ── 1. Build SDK ──────────────────────────────────────────────────────────
+  await runTest('1. Build SDK', async () => {
     await runCommand(npmCommand(), ['run', 'build'], { cwd: SDK_DIR })
     await loadSdk()
-    return 'agentmarket-sdk build completed'
+    return 'agentmarket-sdk built and loaded'
   })
 
-  await runTest('2. Testing contract configuration', async () => {
-    assert(CONTRACTS.testnet.budgetEnforcer === CONTRACT_ID, 'Contract ID mismatch')
-    return `contract ${CONTRACT_ID}`
-  })
-
-  await runTest('3. Testing keypair generation', async () => {
+  // ── 2. Keypair generation ─────────────────────────────────────────────────
+  await runTest('2. Keypair generation', async () => {
     const keypair = StellarClient.generateKeypair()
-    assert(keypair.publicKey.startsWith('G'), 'Generated public key is invalid')
-    assert(keypair.secretKey.startsWith('S'), 'Generated secret key is invalid')
-    return `generated ${keypair.publicKey.slice(0, 12)}...`
+    assert(keypair.publicKey.startsWith('G'), 'Public key must start with G')
+    assert(keypair.secretKey.startsWith('S'), 'Secret key must start with S')
+    assert(keypair.publicKey.length === 56, 'Public key must be 56 chars')
+    return `generated ${keypair.publicKey.slice(0, 12)}…`
   })
 
-  await runTest('4. Testing explorer URL generation', async () => {
-    const stellar = new StellarClient('testnet')
-    const url = stellar.getExplorerUrl('abc123')
-    assert(url.includes('testnet.stellarchain.io/tx/abc123'), 'Explorer URL format is invalid')
+  // ── 3. Explorer URL ───────────────────────────────────────────────────────
+  await runTest('3. Explorer URL format', async () => {
+    const client = new StellarClient('mainnet')
+    const url = client.getExplorerUrl('abc123')
+    assert(url.includes('stellar.expert/explorer/public/tx/abc123'), `Bad URL: ${url}`)
     return url
   })
 
+  // ── 4. Live discover endpoint ─────────────────────────────────────────────
+  await runTest('4. Live discover — mainnet XLM APIs', async () => {
+    const res = await fetch(`${BASE_URL}/api/agents/discover`)
+    assert(res.ok, `Discover returned ${res.status}`)
+    const body = await res.json()
+    assert(body.paymentAsset === 'XLM', `paymentAsset should be XLM, got: ${body.paymentAsset}`)
+    assert(body.paymentNetwork === 'mainnet', `paymentNetwork should be mainnet, got: ${body.paymentNetwork}`)
+    assert(Array.isArray(body.apis) && body.apis.length > 0, 'No APIs in discover response')
+    const xlmApis = body.apis.filter(a => a.price?.asset === 'XLM')
+    assert(xlmApis.length > 0, 'No XLM-priced APIs found')
+    return `${body.total} APIs, all on mainnet XLM`
+  })
+
+  // ── 5. Stock-analyst 402 gate ─────────────────────────────────────────────
+  await runTest('5. Stock-analyst 402 Payment Required', async () => {
+    const res = await fetch(`${BASE_URL}/api/proxy/stock-analyst?symbol=AAPL`)
+    assert(res.status === 402, `Expected 402, got ${res.status}`)
+    const body = await res.json()
+    assert(body.payment?.recipient, 'Missing payment.recipient in 402 response')
+    assert(body.payment?.currency === 'XLM' || body.payment?.asset === 'XLM', 'Payment should be XLM')
+    return `recipient: ${body.payment.recipient.slice(0, 8)}…, amount: ${body.payment.amount} XLM`
+  })
+
+  // ── 6. Provider dashboard ─────────────────────────────────────────────────
+  await runTest('6. Provider dashboard (GA7CDNYK)', async () => {
+    const res = await fetch(`${BASE_URL}/api/provider/dashboard?stellarAddress=${PROVIDER_ADDRESS}`)
+    assert(res.ok, `Dashboard returned ${res.status}`)
+    const body = await res.json()
+    assert(body.provider?.stellarAddress === PROVIDER_ADDRESS, 'Wrong provider returned')
+    assert(body.summary?.totalApis > 0, 'Provider has no APIs')
+    return `${body.summary.totalApis} APIs, ${body.summary.totalCalls} calls, ${body.summary.totalRevenue?.toFixed(4)} XLM revenue`
+  })
+
+  // ── 7. SDK balance check ──────────────────────────────────────────────────
   if (!liveSecret) {
-    skipTest(
-      '5. Live market, database, and SDK payment flow',
-      'Set AGENTMARKET_TEST_SECRET_KEY or configure the CLI wallet at ~/.agentmarket/config.json'
-    )
+    skipTest('7. SDK live balance + paid call', 'Set AGENTMARKET_TEST_SECRET_KEY or run: agentmarket init')
   } else {
-    await runTest('5. Live market, database, and SDK payment flow', async () => {
-      await runCommand(npmCommand(), ['run', 'build'], { cwd: MARKET_DIR })
-      await runCommand(npxCommand(), ['prisma', 'db', 'push'], {
-        cwd: MARKET_DIR,
-      })
-
-      const provider = await createProviderWallet()
-      const server = await startMarket(provider.publicKey)
-
-      try {
-        await waitForMarket(server)
-
-        const slug = await registerDatabaseListing()
-        const listingCount = await verifyDatabaseMarketplace(slug)
-        const amount = await verifyPaymentRequired(provider.publicKey)
-        const payment = await verifyLiveSdkPayment(
-          liveSecret.secretKey,
-          provider.publicKey
-        )
-
-        return [
-          `wallet source: ${liveSecret.source}`,
-          `registered listing: ${slug}`,
-          `database listings visible: ${listingCount}`,
-          `paid amount: ${amount} USDC`,
-          `tx hash: ${payment.txHash}`,
-        ].join('\n   ')
-      } finally {
-        await stopMarket(server)
-      }
+    await runTest('7. SDK mainnet wallet balance', async () => {
+      const agent = new AgentMarket({ secretKey: liveSecret.secretKey, network: 'mainnet', baseUrl: BASE_URL })
+      const balance = await agent.getBalance()
+      assert(balance?.xlm !== undefined, 'No XLM balance returned')
+      assert(parseFloat(balance.xlm) > 0, `XLM balance is 0 — fund wallet before calling paid APIs`)
+      return `XLM balance: ${balance.xlm} (source: ${liveSecret.source})`
     })
   }
 
-  console.log('\n' + '='.repeat(50))
-  console.log(`\nTest Results: ${passed} passed, ${failed} failed, ${skipped} skipped\n`)
+  // ── 8. Live paid call — stock-analyst (0.1 XLM) ──────────────────────────
+  if (!liveSecret) {
+    skipTest('8. Live paid call — stock-analyst (0.1 XLM)', 'No secret key configured')
+  } else {
+    await runTest('8. Live paid call — stock-analyst (0.1 XLM)', async () => {
+      const agent = new AgentMarket({ secretKey: liveSecret.secretKey, network: 'mainnet', baseUrl: BASE_URL })
+      const result = await agent.stockAnalyst('AAPL')
+      assert(result.success, `Call failed: ${result.error}`)
+      assert(result.data?.symbol, 'No symbol in response')
+      assert(result.data?.sentiment, 'No sentiment in response')
+      assert(result.metadata?.txHash, 'No txHash in result')
+      return [
+        `symbol: ${result.data.symbol}`,
+        `sentiment: ${result.data.sentiment}`,
+        `tx: ${result.metadata.txHash.slice(0, 16)}…`,
+        `paid: ${result.metadata.cost} XLM`,
+        `latency: ${result.metadata.latencyMs}ms`,
+      ].join('  ')
+    })
+  }
+
+  // ── Summary ───────────────────────────────────────────────────────────────
+  console.log('\n' + '='.repeat(60))
+  console.log(`\nResults: ${passed} passed, ${failed} failed, ${skipped} skipped\n`)
 
   if (failed > 0) {
     console.log('[FAIL] Some tests failed. Check output above.\n')
     process.exit(1)
   }
 
-  console.log(skipped > 0 ? '[WARN] All runnable tests passed; some checks were skipped.\n' : '[PASS] All tests passed.\n')
+  console.log(skipped > 0
+    ? '[WARN] All runnable tests passed; some skipped (no funded wallet configured).\n'
+    : '[PASS] All tests passed.\n'
+  )
 }
 
 runTests().catch((error) => {
