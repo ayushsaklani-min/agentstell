@@ -41,5 +41,17 @@ idea.txt.txt
 resources.txt
 IMPLEMENTATION_PLAN.md
 mock-server.js
+setup-usdc.mjs
+swap-xlm-usdc.mjs
 agentmarket/README.md
 web/README.md
+
+# DB files and temp SQL
+agentmarket/*.db
+agentmarket/*.sql
+
+# Ops / deployment scripts (internal)
+ops/
+
+# Docs internal
+docs/superpowers/

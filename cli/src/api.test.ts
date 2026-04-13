@@ -26,9 +26,8 @@ describe('CLI API client', () => {
     loadConfig.mockReset();
     loadConfig.mockReturnValue({
       marketplaceUrl: 'https://agentmarket.xyz',
-      stellarNetwork: 'testnet',
+      stellarNetwork: 'mainnet',
       budgetLimit: 10,
-      contractId: 'CBCAATFEUDNV43RPERRZ66B76C2HIOJ7LJBG77F4KHAVU527Y3PLHPJB',
     });
   });
 
@@ -38,9 +37,9 @@ describe('CLI API client', () => {
   });
 
   it('lists APIs by category and preserves canonical methods', () => {
-    expect(listApis('AI')).toHaveLength(1);
-    expect(getApiInfo('ai')?.method).toBe('POST');
-    expect(getApiInfo('weather')?.method).toBe('GET');
+    expect(listApis('Finance')).toHaveLength(2);
+    expect(getApiInfo('stock-analyst')?.method).toBe('GET');
+    expect(getApiInfo('trading-advisor')?.method).toBe('GET');
   });
 
   it('returns a clear error when no wallet is configured', async () => {
@@ -49,8 +48,8 @@ describe('CLI API client', () => {
     };
 
     const result = await callApi(
-      'weather',
-      { city: 'Mumbai' },
+      'stock-analyst',
+      { symbol: 'NVDA' },
       stellarClient as unknown as StellarClient
     );
 
@@ -64,9 +63,8 @@ describe('CLI API client', () => {
     const stellarClient = {
       getWalletInfo: vi.fn().mockResolvedValue({
         publicKey: 'GTESTPUBLICKEY123',
-        network: 'testnet',
+        network: 'mainnet',
         xlmBalance: '25',
-        usdcBalance: '2',
       }),
       sendPayment: vi.fn().mockResolvedValue({
         success: true,
@@ -80,8 +78,8 @@ describe('CLI API client', () => {
           JSON.stringify({
             payment: {
               recipient: 'GDSTINATION123',
-              amount: '0.001',
-              memo: 'weather:cli',
+              amount: '0.1',
+              memo: 'stock-analyst:cli',
             },
           }),
           {
@@ -91,7 +89,7 @@ describe('CLI API client', () => {
         )
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ city: 'Mumbai' }), {
+        new Response(JSON.stringify({ symbol: 'NVDA', sentiment: 'bullish' }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         })
@@ -100,8 +98,8 @@ describe('CLI API client', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const result = await callApi(
-      'weather',
-      { city: 'Mumbai' },
+      'stock-analyst',
+      { symbol: 'NVDA' },
       stellarClient as unknown as StellarClient
     );
 
@@ -112,26 +110,26 @@ describe('CLI API client', () => {
 
     expect(stellarClient.sendPayment).toHaveBeenCalledWith(
       'GDSTINATION123',
-      '0.001',
-      'weather:cli'
+      '0.1',
+      'stock-analyst:cli'
     );
     expect(secondHeaders['X-Payment-TxHash']).toBe('tx_cli_123');
     expect(JSON.parse(secondHeaders['X-Payment-Proof'])).toMatchObject({
       txHash: 'tx_cli_123',
-      network: 'testnet',
+      network: 'mainnet',
     });
     expect(appendHistory).toHaveBeenCalledWith(
       expect.objectContaining({
-        api: 'weather',
+        api: 'stock-analyst',
         txHash: 'tx_cli_123',
-        amount: 0.001,
+        amount: 0.1,
       })
     );
     expect(result).toMatchObject({
       success: true,
-      data: { city: 'Mumbai' },
+      data: { symbol: 'NVDA', sentiment: 'bullish' },
       txHash: 'tx_cli_123',
-      amountPaid: 0.001,
+      amountPaid: 0.1,
     });
   });
 });
@@ -145,9 +143,8 @@ describe('refreshRegistry', () => {
     writeRegistryCache.mockReset();
     loadConfig.mockReturnValue({
       marketplaceUrl: 'https://agentmarket.xyz',
-      stellarNetwork: 'testnet',
+      stellarNetwork: 'mainnet',
       budgetLimit: 10,
-      contractId: 'CBCAATFEUDNV43RPERRZ66B76C2HIOJ7LJBG77F4KHAVU527Y3PLHPJB',
     });
   });
 
@@ -163,7 +160,7 @@ describe('refreshRegistry', () => {
         slug: 'cached',
         description: 'From cache',
         category: 'Data',
-        priceUsdc: 0.001,
+        priceXlm: 0.1,
         endpoint: '/api/proxy/cached',
         method: 'GET' as const,
         provider: 'TestProvider',
@@ -192,8 +189,8 @@ describe('refreshRegistry', () => {
         slug: 'fresh-api',
         name: 'Fresh API',
         description: 'From network',
-        category: 'Data',
-        price: { amount: 0.002, asset: 'USDC' },
+        category: 'Finance',
+        price: { amount: 0.2, asset: 'XLM' },
         endpoint: '/api/proxy/fresh-api',
         method: 'GET',
         input: { params: [], schema: null, example: {} },
@@ -225,8 +222,8 @@ describe('refreshRegistry', () => {
 
     await refreshRegistry('https://agentmarket.xyz');
 
-    // Static fallback has 'weather'
-    expect(listApis()).toContainEqual(expect.objectContaining({ slug: 'weather' }));
+    // Static fallback has 'stock-analyst'
+    expect(listApis()).toContainEqual(expect.objectContaining({ slug: 'stock-analyst' }));
     expect(writeRegistryCache).not.toHaveBeenCalled();
   });
 
@@ -244,6 +241,6 @@ describe('refreshRegistry', () => {
 
     await refreshRegistry('https://agentmarket.xyz');
 
-    expect(listApis()).toContainEqual(expect.objectContaining({ slug: 'weather' }));
+    expect(listApis()).toContainEqual(expect.objectContaining({ slug: 'stock-analyst' }));
   });
 });

@@ -25,11 +25,11 @@ export interface AgentMarketConfig {
 
 // Budget control
 export interface BudgetLimits {
-  /** Maximum USDC per single API call */
+  /** Maximum XLM per single API call */
   maxPerCall: number
-  /** Maximum USDC per session */
+  /** Maximum XLM per session */
   maxPerSession: number
-  /** Maximum USDC per provider (optional) */
+  /** Maximum XLM per provider (optional) */
   maxPerProvider?: number
 }
 
@@ -71,7 +71,7 @@ export interface ApiInfo {
   slug: string
   description: string
   category: string
-  priceUsdc: number
+  priceXlm: number
   endpoint: string
   method: 'GET' | 'POST'
   provider: {
@@ -89,7 +89,7 @@ export interface PreflightResult {
   name: string
   method: 'GET' | 'POST'
   endpoint: string
-  priceUsdc: number
+  priceXlm: number
   provider: { name: string; stellarAddress: string }
   budgetAllowed: boolean
   budgetReason?: string
@@ -105,7 +105,7 @@ export interface ExecutionReceipt {
   txHash: string
   network: NetworkType
   providerAddress: string
-  amountUsdc: number
+  amountXlm: number
   timestamp: Date
   latencyMs: number
   success: boolean
@@ -121,7 +121,7 @@ export interface PaymentRequired {
 export interface PaymentDetails {
   recipient: string
   amount: string
-  currency: 'USDC'
+  currency: 'XLM'
   memo: string
   network: NetworkType
   apiId: string
@@ -150,82 +150,22 @@ export interface ApiResult<T = unknown> {
 }
 
 // Specific API Response Types
-export interface WeatherResponse {
-  city: string
-  country: string
-  temp: number
-  tempMin: number
-  tempMax: number
-  feelsLike: number
-  humidity: number
-  windSpeed: number
-  conditions: string
-  description: string
-  icon: string
-  sunrise: number
-  sunset: number
+export interface StockAnalystResponse {
+  symbol: string
+  price: number
+  sentiment: 'bullish' | 'bearish' | 'neutral'
+  reason: string
 }
 
-export interface AirQualityResponse {
-  city: string
-  country: string
-  aqi: number
-  category: 'Good' | 'Moderate' | 'Unhealthy for Sensitive' | 'Unhealthy' | 'Very Unhealthy' | 'Hazardous'
-  mainPollutant: string
-  pollutants: {
-    pm25: number
-    pm10: number
-    o3: number
-    no2: number
-    so2: number
-    co: number
-  }
-  healthRecommendation: string
-}
-
-export interface NewsArticle {
-  title: string
-  source: string
-  author?: string
-  description?: string
-  url: string
-  imageUrl?: string
-  publishedAt: string
-}
-
-export interface NewsResponse {
-  articles: NewsArticle[]
-  totalResults: number
-  query: string
-}
-
-export interface CurrencyResponse {
-  from: string
-  to: string
-  amount: number
-  rate: number
-  converted: number
-  timestamp: string
-}
-
-export interface GeolocationResponse {
-  ip: string
-  city: string
-  region: string
-  country: string
-  countryCode: string
-  lat: number
-  lon: number
-  timezone: string
-  isp: string
-  org: string
-}
-
-export interface AIResponse {
-  response: string
-  model: string
-  tokensUsed: number
-  finishReason: string
+export interface TradingAdvisorResponse {
+  symbol: string
+  action: 'BUY' | 'HOLD' | 'SELL'
+  confidence: number
+  entryTarget: number
+  exitTarget: number
+  stopLoss: number
+  risk: string
+  reason: string
 }
 
 // Event types for logging/monitoring — full lifecycle
@@ -253,7 +193,6 @@ export type EventHandler = (event: SDKEvent) => void
 // Stellar types
 export interface StellarBalance {
   xlm: string
-  usdc: string
 }
 
 export interface TransactionResult {
@@ -275,7 +214,7 @@ export class AgentMarketError extends Error {
   }
 }
 
-export type ErrorCode = 
+export type ErrorCode =
   | 'INSUFFICIENT_BALANCE'
   | 'BUDGET_EXCEEDED'
   | 'PAYMENT_FAILED'

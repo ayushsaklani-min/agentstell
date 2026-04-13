@@ -11,22 +11,29 @@ export interface Config {
   contractId?: string;
 }
 
+export interface ApiParam {
+  name: string;
+  type: string;
+  required: boolean;
+  description: string;
+}
+
 export interface ApiInfo {
   name: string;
   slug: string;
   description: string;
   category: string;
-  priceUsdc: number;
+  priceXlm: number;
   endpoint: string;
   method: 'GET' | 'POST';
   provider: string;
+  params?: ApiParam[];
 }
 
 export interface WalletInfo {
   publicKey: string;
   network: 'testnet' | 'mainnet';
   xlmBalance: string;
-  usdcBalance: string;
 }
 
 export interface CallResult {

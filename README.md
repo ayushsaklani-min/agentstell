@@ -40,8 +40,8 @@ You ──0.5 XLM──▶ Trading Advisor (GALXP6IQ…)
 
 | Payment | Amount | Tx Hash |
 |---|---:|---|
-| User → Trading Advisor | `0.5 XLM` | [`cf77f6c475…401f403`](https://stellar.expert/explorer/public/tx/cf77f6c4753472ae5791de5fe88d4edd14712deffb8c8668871b348d4401f403) |
-| Trading Advisor → Stock Analyst | `0.1 XLM` | [`d04334667a…9b360550`](https://stellar.expert/explorer/public/tx/d04334667ae20673e11dd754fb4d18d0c3b64bd9a1e19b84d65032469b360550) |
+| User → Trading Advisor | `0.5 XLM` | [`9a8e1fac30…c8d2fef`](https://stellar.expert/explorer/public/tx/9a8e1fac30e7959cc8fb508a6a7fc4db19648577d577c53947bffd206c8d2fef) |
+| Trading Advisor → Stock Analyst | `0.1 XLM` | [`3efaa3265a…56978c`](https://stellar.expert/explorer/public/tx/3efaa3265a7bc5ca148e79dd1d616d0e1763303dd808cb0d4691d1073156978c) |
 
 Trading Advisor has its own Stellar wallet (`GCIWVZ3X…`) and autonomously pays for the data it consumes. No human approved the transaction. No API key was used. **That's the agent economy.**
 

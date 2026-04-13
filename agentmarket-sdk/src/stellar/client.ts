@@ -1,6 +1,6 @@
 /**
  * Stellar Client for AgentMarket SDK
- * Handles all Stellar blockchain interactions
+ * Handles all Stellar blockchain interactions — native XLM payments only
  */
 
 import * as StellarSdk from '@stellar/stellar-sdk'
@@ -25,18 +25,6 @@ type NetworkConfig = {
   networkPassphrase: string
   horizonUrl: string
   friendbotUrl: string
-}
-
-// USDC Asset on Stellar (Testnet)
-const USDC_TESTNET = {
-  code: 'USDC',
-  issuer: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
-}
-
-// USDC Asset on Stellar (Mainnet - Circle)
-const USDC_MAINNET = {
-  code: 'USDC',
-  issuer: 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN',
 }
 
 /**
@@ -72,11 +60,11 @@ export class StellarClient {
   private keypair: StellarSdk.Keypair | null = null
   private config: NetworkConfig
 
-  constructor(network: NetworkType = 'testnet', secretKey?: string) {
+  constructor(network: NetworkType = 'mainnet', secretKey?: string) {
     this.network = network
     this.config = NETWORKS[network]
     this.server = new StellarSdk.Horizon.Server(this.config.horizonUrl)
-    
+
     if (secretKey) {
       this.keypair = StellarSdk.Keypair.fromSecret(secretKey)
     }
@@ -85,12 +73,6 @@ export class StellarClient {
   /** Get public key */
   get publicKey(): string | null {
     return this.keypair?.publicKey() ?? null
-  }
-
-  /** Get USDC asset for current network */
-  get usdcAsset(): StellarSdk.Asset {
-    const usdc = this.network === 'mainnet' ? USDC_MAINNET : USDC_TESTNET
-    return new StellarSdk.Asset(usdc.code, usdc.issuer)
   }
 
   /** Get account balances */
@@ -103,32 +85,23 @@ export class StellarClient {
     try {
       const account = await this.server.loadAccount(address)
       let xlm = '0'
-      let usdc = '0'
 
       for (const balance of account.balances) {
         if (balance.asset_type === 'native') {
           xlm = balance.balance
-        } else if (balance.asset_type === 'credit_alphanum4') {
-          const usdcConfig = this.network === 'mainnet' ? USDC_MAINNET : USDC_TESTNET
-          if (
-            balance.asset_code === usdcConfig.code &&
-            balance.asset_issuer === usdcConfig.issuer
-          ) {
-            usdc = balance.balance
-          }
         }
       }
 
-      return { xlm, usdc }
+      return { xlm }
     } catch (error) {
       if (error instanceof StellarSdk.NotFoundError) {
-        return { xlm: '0', usdc: '0' }
+        return { xlm: '0' }
       }
       throw error
     }
   }
 
-  /** Send USDC payment */
+  /** Send native XLM payment */
   async sendPayment(
     destination: string,
     amount: string,
@@ -148,7 +121,7 @@ export class StellarClient {
         .addOperation(
           StellarSdk.Operation.payment({
             destination,
-            asset: this.usdcAsset,
+            asset: StellarSdk.Asset.native(),
             amount,
           })
         )
@@ -177,75 +150,7 @@ export class StellarClient {
     }
   }
 
-  /** Send payment in XLM, provider receives exact USDC via Stellar DEX path conversion */
-  async sendPathPayment(
-    destination: string,
-    destAmountUsdc: string,
-    memo?: string
-  ): Promise<TransactionResult> {
-    if (!this.keypair) {
-      return { success: false, error: 'No secret key configured - cannot send payments' }
-    }
-
-    try {
-      // Find XLM → USDC conversion path via Stellar DEX
-      const pathResult = await this.server
-        .strictReceivePaths(
-          [StellarSdk.Asset.native()],
-          this.usdcAsset,
-          destAmountUsdc
-        )
-        .call()
-
-      if (!pathResult.records || pathResult.records.length === 0) {
-        return { success: false, error: 'No XLM→USDC path available on DEX' }
-      }
-
-      // 2% slippage buffer on XLM sendMax — stroop arithmetic avoids IEEE 754 drift
-      const xlmStroops = Math.round(parseFloat(pathResult.records[0].source_amount) * 1e7)
-      const sendMaxStroops = Math.ceil(xlmStroops * 1.02)
-      const sendMax = (sendMaxStroops / 1e7).toFixed(7)
-
-      const sourceAccount = await this.server.loadAccount(this.keypair.publicKey())
-
-      const transactionBuilder = new StellarSdk.TransactionBuilder(sourceAccount, {
-        fee: StellarSdk.BASE_FEE,
-        networkPassphrase: this.config.networkPassphrase,
-      })
-        .addOperation(
-          StellarSdk.Operation.pathPaymentStrictReceive({
-            sendAsset: StellarSdk.Asset.native(),
-            sendMax,
-            destination,
-            destAsset: this.usdcAsset,
-            destAmount: destAmountUsdc,
-            path: [],
-          })
-        )
-        .setTimeout(30)
-
-      if (memo) {
-        transactionBuilder.addMemo(StellarSdk.Memo.text(memo.slice(0, 28)))
-      }
-
-      const transaction = transactionBuilder.build()
-      transaction.sign(this.keypair)
-      const result = await this.server.submitTransaction(transaction)
-
-      return {
-        success: true,
-        txHash: result.hash,
-        ledger: result.ledger,
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: extractHorizonError(error),
-      }
-    }
-  }
-
-  /** Verify a payment transaction */
+  /** Verify a native XLM payment transaction */
   async verifyPayment(
     txHash: string,
     expectedRecipient: string,
@@ -260,12 +165,10 @@ export class StellarClient {
       for (const op of operations.records) {
         if (op.type === 'payment') {
           const paymentOp = op as StellarSdk.Horizon.ServerApi.PaymentOperationRecord
-          const usdcConfig = this.network === 'mainnet' ? USDC_MAINNET : USDC_TESTNET
 
           if (
             paymentOp.to === expectedRecipient &&
-            paymentOp.asset_code === usdcConfig.code &&
-            paymentOp.asset_issuer === usdcConfig.issuer &&
+            paymentOp.asset_type === 'native' &&
             parseFloat(paymentOp.amount) >= parseFloat(expectedAmount)
           ) {
             return true
@@ -276,43 +179,6 @@ export class StellarClient {
       return false
     } catch {
       return false
-    }
-  }
-
-  /** Establish USDC trustline (required before receiving USDC) */
-  async establishTrustline(): Promise<TransactionResult> {
-    if (!this.keypair) {
-      throw new Error('No secret key configured')
-    }
-
-    try {
-      const sourceAccount = await this.server.loadAccount(this.keypair.publicKey())
-
-      const transaction = new StellarSdk.TransactionBuilder(sourceAccount, {
-        fee: StellarSdk.BASE_FEE,
-        networkPassphrase: this.config.networkPassphrase,
-      })
-        .addOperation(
-          StellarSdk.Operation.changeTrust({
-            asset: this.usdcAsset,
-          })
-        )
-        .setTimeout(30)
-        .build()
-
-      transaction.sign(this.keypair)
-      const result = await this.server.submitTransaction(transaction)
-
-      return {
-        success: true,
-        txHash: result.hash,
-        ledger: result.ledger,
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: extractHorizonError(error),
-      }
     }
   }
 
@@ -349,8 +215,8 @@ export class StellarClient {
   /** Get explorer URL for a transaction */
   getExplorerUrl(txHash: string): string {
     const baseUrl = this.network === 'mainnet'
-      ? 'https://stellarchain.io'
-      : 'https://testnet.stellarchain.io'
+      ? 'https://stellar.expert/explorer/public'
+      : 'https://stellar.expert/explorer/testnet'
     return `${baseUrl}/tx/${txHash}`
   }
 }

@@ -16,20 +16,8 @@ export const CONTRACTS = {
 // Wallet used for testing
 export const TEST_WALLET = {
   publicKey: 'GC3BIP4AEPKE4XR3BKPYMFPX3T75MQB4QAQEA7XPISUPGQ4P6WRMH6SF',
-  // Never commit real secret keys - this is testnet only
+  // Never commit real secret keys
 };
-
-// USDC Asset configurations
-export const USDC_ASSETS = {
-  testnet: {
-    code: 'USDC',
-    issuer: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
-  },
-  mainnet: {
-    code: 'USDC',
-    issuer: 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN',
-  },
-} as const;
 
 // Network configurations
 export const NETWORKS = {
@@ -47,24 +35,20 @@ export const NETWORKS = {
   },
 } as const;
 
-// Default API pricing (in USDC)
+// Default API pricing (in XLM)
 export const DEFAULT_API_PRICING = {
-  weather: 0.001,
-  'air-quality': 0.001,
-  news: 0.002,
-  currency: 0.001,
-  geolocation: 0.001,
-  ai: 0.005,
-  default: 0.001,
+  'stock-analyst': 0.1,
+  'trading-advisor': 0.5,
+  default: 0.1,
 } as const;
 
-// Stroops conversion (1 USDC = 10^7 stroops)
-export const STROOPS_PER_USDC = 10_000_000;
+// Stroops conversion (1 XLM = 10^7 stroops)
+export const STROOPS_PER_XLM = 10_000_000;
 
-export function usdcToStroops(usdc: number): bigint {
-  return BigInt(Math.floor(usdc * STROOPS_PER_USDC));
+export function xlmToStroops(xlm: number): bigint {
+  return BigInt(Math.floor(xlm * STROOPS_PER_XLM));
 }
 
-export function stroopsToUsdc(stroops: bigint): number {
-  return Number(stroops) / STROOPS_PER_USDC;
+export function stroopsToXlm(stroops: bigint): number {
+  return Number(stroops) / STROOPS_PER_XLM;
 }

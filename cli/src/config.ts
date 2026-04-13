@@ -21,7 +21,12 @@ export function readRegistryCache(): RegistryCache | null {
   try {
     if (!fs.existsSync(REGISTRY_CACHE_FILE)) return null;
     const data = fs.readFileSync(REGISTRY_CACHE_FILE, 'utf-8');
-    return JSON.parse(data) as RegistryCache;
+    const parsed = JSON.parse(data) as RegistryCache;
+    // Migrate old cache entries that used priceUsdc
+    if (parsed.apis?.length > 0 && !('priceXlm' in parsed.apis[0])) {
+      return null; // Force re-fetch
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -48,10 +53,10 @@ export const CONTRACTS = {
 } as const;
 
 export const DEFAULT_CONFIG: Config = {
-  stellarNetwork: 'testnet',
-  marketplaceUrl: 'https://agentmarket.xyz',
-  budgetLimit: 10, // 10 USDC default
-  contractId: CONTRACTS.testnet.budgetEnforcer,
+  stellarNetwork: 'mainnet',
+  marketplaceUrl: 'https://steller-web.vercel.app',
+  budgetLimit: 10, // 10 XLM default
+  contractId: CONTRACTS.mainnet.budgetEnforcer,
 };
 
 export function ensureConfigDir(): void {
@@ -62,7 +67,7 @@ export function ensureConfigDir(): void {
 
 export function loadConfig(): Config {
   ensureConfigDir();
-  
+
   if (fs.existsSync(CONFIG_FILE)) {
     try {
       const data = fs.readFileSync(CONFIG_FILE, 'utf-8');
@@ -71,7 +76,7 @@ export function loadConfig(): Config {
       return DEFAULT_CONFIG;
     }
   }
-  
+
   return DEFAULT_CONFIG;
 }
 
@@ -88,7 +93,7 @@ export function getConfigPath(): string {
 
 export function loadHistory(): { calls: { api: string; timestamp: string; amount: number; txHash: string }[] } {
   ensureConfigDir();
-  
+
   if (fs.existsSync(HISTORY_FILE)) {
     try {
       const data = fs.readFileSync(HISTORY_FILE, 'utf-8');
@@ -97,7 +102,7 @@ export function loadHistory(): { calls: { api: string; timestamp: string; amount
       return { calls: [] };
     }
   }
-  
+
   return { calls: [] };
 }
 

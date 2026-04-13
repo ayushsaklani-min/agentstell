@@ -10,21 +10,22 @@ describe('AgentMarket', () => {
   it('lists built-in APIs with canonical HTTP methods', () => {
     const agent = new AgentMarket()
 
-    expect(agent.listApis()).toHaveLength(7)
-    expect(agent.getApiInfo('weather')?.method).toBe('GET')
-    expect(agent.getApiInfo('ai')?.method).toBe('POST')
-    expect(agent.getApiInfo('agent-test')?.endpoint).toBe('/api/proxy/agent-test')
+    expect(agent.listApis()).toHaveLength(2)
+    expect(agent.getApiInfo('stock-analyst')?.method).toBe('GET')
+    expect(agent.getApiInfo('trading-advisor')?.method).toBe('GET')
+    expect(agent.getApiInfo('stock-analyst')?.priceXlm).toBe(0.1)
+    expect(agent.getApiInfo('trading-advisor')?.priceXlm).toBe(0.5)
   })
 
   it('blocks requests that exceed the configured per-call budget', async () => {
     const agent = new AgentMarket({
       budgetLimits: {
-        maxPerCall: 0.001,
-        maxPerSession: 1,
+        maxPerCall: 0.05,
+        maxPerSession: 10,
       },
     })
 
-    const result = await agent.ai('Explain x402')
+    const result = await agent.stockAnalyst('NVDA')
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('exceeds max per call')
@@ -34,13 +35,13 @@ describe('AgentMarket', () => {
   it('tracks successful paid calls and emits payment events', async () => {
     const agent = new AgentMarket()
     const executeWithPayment = vi.fn().mockResolvedValue({
-      data: { city: 'Mumbai' },
+      data: { symbol: 'NVDA', sentiment: 'bullish' },
       txHash: 'tx_123',
-      cost: 0.001,
+      cost: 0.1,
     })
     const getExplorerUrl = vi
       .fn()
-      .mockReturnValue('https://testnet.stellarchain.io/tx/tx_123')
+      .mockReturnValue('https://stellar.expert/explorer/public/tx/tx_123')
     const events: string[] = []
 
     ;(agent as any).x402 = { executeWithPayment }
@@ -50,24 +51,24 @@ describe('AgentMarket', () => {
       events.push(event.type)
     })
 
-    const result = await agent.weather('Mumbai')
+    const result = await agent.stockAnalyst('NVDA')
 
     expect(executeWithPayment).toHaveBeenCalledWith(
-      expect.stringContaining('/api/proxy/weather?city=Mumbai'),
+      expect.stringContaining('/api/proxy/stock-analyst?symbol=NVDA'),
       { method: 'GET' }
     )
     expect(result).toMatchObject({
       success: true,
-      data: { city: 'Mumbai' },
+      data: { symbol: 'NVDA', sentiment: 'bullish' },
       metadata: {
-        apiName: 'weather',
+        apiName: 'stock-analyst',
         txHash: 'tx_123',
-        cost: 0.001,
+        cost: 0.1,
       },
     })
     expect(agent.getBudgetStatus()).toMatchObject({
-      spent: 0.001,
-      remaining: 0.999,
+      spent: 0.1,
+      remaining: 9.9,
       callCount: 1,
     })
     expect(events).toEqual(
@@ -82,7 +83,7 @@ describe('AgentMarket', () => {
     const executeWithPayment = vi.fn().mockResolvedValue({
       data: { ok: true },
       txHash: 'tx_dynamic',
-      cost: 0.003,
+      cost: 0.2,
     })
 
     vi.stubGlobal(
@@ -91,13 +92,13 @@ describe('AgentMarket', () => {
         ok: true,
         json: async () => ({
           api: {
-            id: 'custom-weather',
-            slug: 'custom-weather',
-            name: 'Custom Weather',
-            description: 'Provider weather feed',
-            category: 'Data',
-            priceUsdc: 0.003,
-            endpoint: '/api/proxy/custom-weather',
+            id: 'custom-agent',
+            slug: 'custom-agent',
+            name: 'Custom Agent',
+            description: 'Provider agent',
+            category: 'Finance',
+            priceXlm: 0.2,
+            endpoint: '/api/proxy/custom-agent',
             method: 'GET',
             providerName: 'Demo Provider',
             providerStellarAddress: 'GDEMO123',
@@ -107,20 +108,20 @@ describe('AgentMarket', () => {
     )
 
     ;(agent as any).x402 = { executeWithPayment }
-    ;(agent as any).stellar = { getExplorerUrl: vi.fn().mockReturnValue('https://testnet.stellarchain.io/tx/tx_dynamic') }
+    ;(agent as any).stellar = { getExplorerUrl: vi.fn().mockReturnValue('https://stellar.expert/explorer/public/tx/tx_dynamic') }
 
-    const result = await agent.get('custom-weather', { city: 'Pune' })
+    const result = await agent.get('custom-agent', { symbol: 'AAPL' })
 
     expect(result.success).toBe(true)
     expect(executeWithPayment).toHaveBeenCalledWith(
-      'https://agentmarket.xyz/api/proxy/custom-weather?city=Pune',
+      'https://agentmarket.xyz/api/proxy/custom-agent?symbol=AAPL',
       { method: 'GET' }
     )
-    expect(agent.getApiInfo('custom-weather')).toMatchObject({
+    expect(agent.getApiInfo('custom-agent')).toMatchObject({
       provider: {
         name: 'Demo Provider',
       },
-      priceUsdc: 0.003,
+      priceXlm: 0.2,
     })
   })
 })

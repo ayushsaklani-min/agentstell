@@ -1,8 +1,8 @@
 /**
  * Basic Usage Example
- * 
- * This example shows how to use the AgentMarket SDK to fetch data
- * from various APIs using x402 micropayments on Stellar.
+ *
+ * Shows how to use the AgentMarket SDK to call paid APIs
+ * using x402 micropayments with native XLM on Stellar mainnet.
  */
 
 import { AgentMarket } from '../src'
@@ -10,16 +10,15 @@ import { AgentMarket } from '../src'
 async function main() {
   // Initialize the SDK with your Stellar credentials
   const agent = new AgentMarket({
-    // Your Stellar testnet secret key
     secretKey: process.env.STELLAR_SECRET_KEY,
-    network: 'testnet',
-    
+    network: 'mainnet',
+
     // Budget limits to prevent overspending
     budgetLimits: {
-      maxPerCall: 0.01,      // Max $0.01 per API call
-      maxPerSession: 1.0,    // Max $1.00 total this session
+      maxPerCall: 1.0,       // Max 1 XLM per API call
+      maxPerSession: 5.0,    // Max 5 XLM total this session
     },
-    
+
     // Enable debug logging
     debug: true,
   })
@@ -28,7 +27,7 @@ async function main() {
   agent.on((event) => {
     if (event.type === 'payment_confirmed') {
       console.log(`Payment confirmed: ${event.data.txHash}`)
-      console.log(`   Cost: $${event.data.cost} USDC`)
+      console.log(`   Cost: ${event.data.cost} XLM`)
     }
   })
 
@@ -36,64 +35,41 @@ async function main() {
 
   // Check wallet balance
   const balance = await agent.getBalance()
-  console.log(`Wallet Balance: ${balance.xlm} XLM, ${balance.usdc} USDC\n`)
+  console.log(`Wallet Balance: ${balance.xlm} XLM\n`)
 
-  // Example 1: Get weather data
-  console.log('Fetching weather for Mumbai...')
-  const weather = await agent.weather('Mumbai')
-  
-  if (weather.success) {
-    console.log(`   Temperature: ${weather.data?.temp}°C`)
-    console.log(`   Conditions: ${weather.data?.conditions}`)
-    console.log(`   Cost: $${weather.metadata.cost} USDC`)
+  // Example 1: Get stock analysis with sentiment
+  console.log('Fetching stock analysis for NVDA...')
+  const analysis = await agent.stockAnalyst('NVDA')
+
+  if (analysis.success) {
+    console.log(`   Price: $${analysis.data?.price}`)
+    console.log(`   Sentiment: ${analysis.data?.sentiment}`)
+    console.log(`   Reason: ${analysis.data?.reason}`)
+    console.log(`   Cost: ${analysis.metadata.cost} XLM`)
   } else {
-    console.log(`   Error: ${weather.error}`)
+    console.log(`   Error: ${analysis.error}`)
   }
 
-  // Example 2: Get air quality
-  console.log('\nFetching air quality for Delhi...')
-  const airQuality = await agent.airQuality('Delhi')
-  
-  if (airQuality.success) {
-    console.log(`   AQI: ${airQuality.data?.aqi}`)
-    console.log(`   Category: ${airQuality.data?.category}`)
-    console.log(`   Cost: $${airQuality.metadata.cost} USDC`)
-  } else {
-    console.log(`   Error: ${airQuality.error}`)
-  }
+  // Example 2: Get trading recommendation
+  console.log('\nFetching trading advice for TSLA...')
+  const advice = await agent.tradingAdvisor('TSLA')
 
-  // Example 3: Get news headlines
-  console.log('\nFetching AI news...')
-  const news = await agent.news('artificial intelligence', 5)
-  
-  if (news.success) {
-    console.log(`   Found ${news.data?.articles.length} articles:`)
-    news.data?.articles.slice(0, 3).forEach((article, i) => {
-      console.log(`   ${i + 1}. ${article.title.slice(0, 60)}...`)
-    })
-    console.log(`   Cost: $${news.metadata.cost} USDC`)
+  if (advice.success) {
+    console.log(`   Action: ${advice.data?.action}`)
+    console.log(`   Confidence: ${advice.data?.confidence}%`)
+    console.log(`   Entry: $${advice.data?.entryTarget}`)
+    console.log(`   Stop-loss: $${advice.data?.stopLoss}`)
+    console.log(`   Cost: ${advice.metadata.cost} XLM`)
   } else {
-    console.log(`   Error: ${news.error}`)
-  }
-
-  // Example 4: Currency conversion
-  console.log('\nConverting 100 USD to EUR...')
-  const currency = await agent.currency('USD', 'EUR', 100)
-  
-  if (currency.success) {
-    console.log(`   Rate: 1 USD = ${currency.data?.rate} EUR`)
-    console.log(`   Result: $100 = €${currency.data?.converted}`)
-    console.log(`   Cost: $${currency.metadata.cost} USDC`)
-  } else {
-    console.log(`   Error: ${currency.error}`)
+    console.log(`   Error: ${advice.error}`)
   }
 
   // Check final budget status
   const budget = agent.getBudgetStatus()
   console.log('\nSession Summary:')
   console.log(`   API Calls Made: ${budget.callCount}`)
-  console.log(`   Total Spent: $${budget.spent.toFixed(4)} USDC`)
-  console.log(`   Budget Remaining: $${budget.remaining.toFixed(4)} USDC`)
+  console.log(`   Total Spent: ${budget.spent.toFixed(4)} XLM`)
+  console.log(`   Budget Remaining: ${budget.remaining.toFixed(4)} XLM`)
 }
 
 main().catch(console.error)

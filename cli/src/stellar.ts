@@ -1,5 +1,6 @@
 /**
  * AgentMarket CLI - Stellar Client
+ * Native XLM payments only
  */
 
 import * as StellarSdk from '@stellar/stellar-sdk';
@@ -9,25 +10,19 @@ const NETWORKS = {
   testnet: {
     networkPassphrase: StellarSdk.Networks.TESTNET,
     horizonUrl: 'https://horizon-testnet.stellar.org',
-    sorobanUrl: 'https://soroban-testnet.stellar.org',
   },
   mainnet: {
     networkPassphrase: StellarSdk.Networks.PUBLIC,
     horizonUrl: 'https://horizon.stellar.org',
-    sorobanUrl: 'https://mainnet.stellar.org',
   },
 } as const;
-
-// USDC testnet issuer
-const USDC_TESTNET_ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
-const USDC_MAINNET_ISSUER = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
 
 export class StellarClient {
   private network: 'testnet' | 'mainnet';
   private server: StellarSdk.Horizon.Server;
   private keypair: StellarSdk.Keypair | null = null;
 
-  constructor(network: 'testnet' | 'mainnet' = 'testnet') {
+  constructor(network: 'testnet' | 'mainnet' = 'mainnet') {
     this.network = network;
     const config = NETWORKS[network];
     this.server = new StellarSdk.Horizon.Server(config.horizonUrl);
@@ -46,20 +41,12 @@ export class StellarClient {
 
     try {
       const account = await this.server.loadAccount(this.keypair.publicKey());
-      
+
       let xlmBalance = '0';
-      let usdcBalance = '0';
-      const usdcIssuer = this.network === 'testnet' ? USDC_TESTNET_ISSUER : USDC_MAINNET_ISSUER;
 
       for (const balance of account.balances) {
         if (balance.asset_type === 'native') {
           xlmBalance = balance.balance;
-        } else if (
-          balance.asset_type !== 'liquidity_pool_shares' &&
-          balance.asset_code === 'USDC' &&
-          balance.asset_issuer === usdcIssuer
-        ) {
-          usdcBalance = balance.balance;
         }
       }
 
@@ -67,7 +54,6 @@ export class StellarClient {
         publicKey: this.keypair.publicKey(),
         network: this.network,
         xlmBalance,
-        usdcBalance,
       };
     } catch (error) {
       // Account may not exist yet
@@ -75,7 +61,6 @@ export class StellarClient {
         publicKey: this.keypair.publicKey(),
         network: this.network,
         xlmBalance: '0',
-        usdcBalance: '0',
       };
     }
   }
@@ -96,6 +81,7 @@ export class StellarClient {
     return null;
   }
 
+  /** Send native XLM payment */
   async sendPayment(
     destination: string,
     amount: string,
@@ -105,27 +91,25 @@ export class StellarClient {
 
     try {
       const account = await this.server.loadAccount(this.keypair.publicKey());
-      const usdcIssuer = this.network === 'testnet' ? USDC_TESTNET_ISSUER : USDC_MAINNET_ISSUER;
-      const usdcAsset = new StellarSdk.Asset('USDC', usdcIssuer);
 
-      const transaction = new StellarSdk.TransactionBuilder(account, {
+      const transactionBuilder = new StellarSdk.TransactionBuilder(account, {
         fee: StellarSdk.BASE_FEE,
         networkPassphrase: NETWORKS[this.network].networkPassphrase,
       })
         .addOperation(
           StellarSdk.Operation.payment({
             destination,
-            asset: usdcAsset,
+            asset: StellarSdk.Asset.native(),
             amount,
           })
         )
         .setTimeout(30);
 
       if (memo) {
-        transaction.addMemo(StellarSdk.Memo.text(memo.substring(0, 28)));
+        transactionBuilder.addMemo(StellarSdk.Memo.text(memo.substring(0, 28)));
       }
 
-      const builtTx = transaction.build();
+      const builtTx = transactionBuilder.build();
       builtTx.sign(this.keypair);
 
       const result = await this.server.submitTransaction(builtTx);

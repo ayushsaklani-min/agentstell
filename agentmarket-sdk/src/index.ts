@@ -1,33 +1,33 @@
 /**
  * AgentMarket SDK
- * 
+ *
  * The first API SDK built for AI agents where payment is authentication.
- * Uses x402 micropayments on Stellar - no accounts, no API keys, no subscriptions.
- * 
+ * Uses x402 micropayments on Stellar — native XLM, no accounts, no API keys.
+ *
  * @example
  * ```typescript
  * import { AgentMarket } from 'agstell-sdk'
- * 
+ *
  * const agent = new AgentMarket({
  *   secretKey: 'SXXXXXXX...', // Your Stellar secret key
- *   network: 'testnet',
+ *   network: 'mainnet',
  *   budgetLimits: {
- *     maxPerCall: 0.01,
- *     maxPerSession: 1.0,
+ *     maxPerCall: 1.0,
+ *     maxPerSession: 10.0,
  *   }
  * })
- * 
- * // Get weather data - automatically pays via Stellar
- * const weather = await agent.get('weather', { city: 'Mumbai' })
- * 
- * // Get news headlines
- * const news = await agent.get('news', { topic: 'AI', limit: 5 })
- * 
+ *
+ * // Get stock analysis — automatically pays 0.1 XLM via Stellar
+ * const analysis = await agent.call('stock-analyst', { symbol: 'NVDA' })
+ *
+ * // Get trading advice — pays 0.5 XLM
+ * const advice = await agent.call('trading-advisor', { symbol: 'TSLA' })
+ *
  * // Check budget status
  * const budget = agent.getBudgetStatus()
- * console.log(`Spent: $${budget.spent} / $${budget.totalBudget}`)
+ * console.log(`Spent: ${budget.spent} XLM / ${budget.totalBudget} XLM`)
  * ```
- * 
+ *
  * @packageDocumentation
  */
 
@@ -44,11 +44,10 @@ export { X402Client, createPaymentRequiredResponse, X402_HEADERS } from './x402/
 export {
   CONTRACTS,
   NETWORKS,
-  USDC_ASSETS,
   DEFAULT_API_PRICING,
-  STROOPS_PER_USDC,
-  usdcToStroops,
-  stroopsToUsdc,
+  STROOPS_PER_XLM,
+  xlmToStroops,
+  stroopsToXlm,
 } from './constants'
 
 // Types
@@ -78,13 +77,8 @@ export type {
   PaymentRequired,
 
   // Response types
-  WeatherResponse,
-  AirQualityResponse,
-  NewsResponse,
-  NewsArticle,
-  CurrencyResponse,
-  GeolocationResponse,
-  AIResponse,
+  StockAnalystResponse,
+  TradingAdvisorResponse,
 
   // Stellar
   StellarBalance,

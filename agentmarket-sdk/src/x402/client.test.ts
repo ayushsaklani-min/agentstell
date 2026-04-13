@@ -14,7 +14,7 @@ function createClient() {
 
   const client = new X402Client({
     stellarClient: stellar as any,
-    network: 'testnet',
+    network: 'mainnet',
   })
 
   return { client, stellar }
@@ -30,19 +30,19 @@ describe('X402Client', () => {
     const { client, stellar } = createClient()
     const payment: PaymentDetails = {
       recipient: 'GDSTINATION123',
-      amount: '0.001',
-      currency: 'USDC',
-      memo: 'weather:demo',
-      network: 'testnet',
-      apiId: 'weather',
-      apiName: 'Weather',
+      amount: '0.1',
+      currency: 'XLM',
+      memo: 'stock-analyst:demo',
+      network: 'mainnet',
+      apiId: 'stock-analyst',
+      apiName: 'Stock Analyst',
       expiresAt: Date.now() + 300000,
     }
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(createPaymentRequiredResponse(payment))
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ city: 'Mumbai' }), {
+        new Response(JSON.stringify({ symbol: 'NVDA', sentiment: 'bullish' }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         })
@@ -55,7 +55,7 @@ describe('X402Client', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const result = await client.executeWithPayment(
-      'https://agentmarket.xyz/api/proxy/weather?city=Mumbai',
+      'https://agentmarket.xyz/api/proxy/stock-analyst?symbol=NVDA',
       { method: 'GET' }
     )
 
@@ -74,12 +74,12 @@ describe('X402Client', () => {
       JSON.parse(secondHeaders[X402_HEADERS.PAYMENT_PROOF])
     ).toMatchObject({
       txHash: 'tx_402',
-      network: 'testnet',
+      network: 'mainnet',
     })
     expect(result).toMatchObject({
-      data: { city: 'Mumbai' },
+      data: { symbol: 'NVDA', sentiment: 'bullish' },
       txHash: 'tx_402',
-      cost: 0.001,
+      cost: 0.1,
     })
   })
 
@@ -87,7 +87,7 @@ describe('X402Client', () => {
     const { client, stellar } = createClient()
     const proof = JSON.stringify({
       txHash: 'tx_123',
-      network: 'testnet',
+      network: 'mainnet',
       timestamp: Date.now(),
     })
 
@@ -98,13 +98,13 @@ describe('X402Client', () => {
         [X402_HEADERS.PAYMENT_PROOF]: proof,
       },
       'GDSTINATION123',
-      '0.001'
+      '0.1'
     )
 
     expect(stellar.verifyPayment).toHaveBeenCalledWith(
       'tx_123',
       'GDSTINATION123',
-      '0.001'
+      '0.1'
     )
     expect(result).toEqual({
       valid: true,

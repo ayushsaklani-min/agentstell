@@ -1,14 +1,13 @@
 /**
  * AI Agent Research Example
- * 
- * This example demonstrates how an autonomous AI agent can use the
- * AgentMarket SDK to research travel destinations by gathering
- * weather, air quality, and news data for multiple cities.
+ *
+ * Demonstrates how an autonomous AI agent uses AgentMarket SDK
+ * to research stocks by composing multiple paid API calls.
+ * Shows A2A composition: Trading Advisor internally calls Stock Analyst.
  */
 
 import { AgentMarket, type ApiResult } from '../src'
 
-// Simulated AI Agent that uses AgentMarket for data gathering
 class ResearchAgent {
   private sdk: AgentMarket
   private logs: string[] = []
@@ -16,18 +15,17 @@ class ResearchAgent {
   constructor(secretKey: string) {
     this.sdk = new AgentMarket({
       secretKey,
-      network: 'testnet',
+      network: 'mainnet',
       budgetLimits: {
-        maxPerCall: 0.01,
-        maxPerSession: 0.5, // $0.50 max for this research task
+        maxPerCall: 1.0,
+        maxPerSession: 5.0, // 5 XLM max for this research task
       },
       debug: false,
     })
 
-    // Log all events
     this.sdk.on((event) => {
       if (event.type === 'payment_confirmed') {
-        this.log(`Paid $${event.data.cost} USDC for ${event.data.apiName}`)
+        this.log(`Paid ${event.data.cost} XLM for ${event.data.apiName}`)
       }
     })
   }
@@ -39,104 +37,58 @@ class ResearchAgent {
     console.log(entry)
   }
 
-  async research(task: string): Promise<{
+  async research(symbols: string[]): Promise<{
     recommendation: string
-    data: Record<string, unknown>
     cost: number
   }> {
-    this.log(`Task: ${task}`)
-    this.log('Starting research...')
+    this.log(`Researching ${symbols.length} stocks...`)
 
-    const cities = ['Delhi', 'Mumbai', 'Kolkata', 'Chennai', 'Bangalore']
-    const results: Record<string, {
-      weather?: { temp: number; conditions: string }
-      airQuality?: { aqi: number; category: string }
-    }> = {}
+    const results: Record<string, { sentiment?: string; action?: string; confidence?: number }> = {}
 
-    // Gather data for each city
-    for (const city of cities) {
-      this.log(`Researching ${city}...`)
-      results[city] = {}
+    for (const symbol of symbols) {
+      this.log(`Analyzing ${symbol}...`)
 
-      // Get weather
-      const weather = await this.sdk.weather(city)
-      if (weather.success && weather.data) {
-        results[city].weather = {
-          temp: weather.data.temp,
-          conditions: weather.data.conditions,
-        }
-        this.log(`   Weather: ${weather.data.temp}°C, ${weather.data.conditions}`)
+      // Get sentiment (0.1 XLM)
+      const analysis = await this.sdk.stockAnalyst(symbol)
+      if (analysis.success && analysis.data) {
+        results[symbol] = { sentiment: analysis.data.sentiment }
+        this.log(`   ${symbol}: ${analysis.data.sentiment} ($${analysis.data.price})`)
       }
 
-      // Get air quality
-      const air = await this.sdk.airQuality(city)
-      if (air.success && air.data) {
-        results[city].airQuality = {
-          aqi: air.data.aqi,
-          category: air.data.category,
+      // Get trading advice (0.5 XLM — internally calls stock-analyst too)
+      const advice = await this.sdk.tradingAdvisor(symbol)
+      if (advice.success && advice.data) {
+        results[symbol] = {
+          ...results[symbol],
+          action: advice.data.action,
+          confidence: advice.data.confidence,
         }
-        this.log(`   AQI: ${air.data.aqi} (${air.data.category})`)
-      }
-    }
-
-    // Get relevant news
-    this.log('Fetching travel news...')
-    const news = await this.sdk.news('India travel pollution', 3)
-    if (news.success) {
-      this.log(`   Found ${news.data?.totalResults} relevant articles`)
-    }
-
-    // Analyze and recommend
-    this.log('Analyzing data...')
-    
-    // Find best city (lowest AQI + nice weather)
-    let bestCity = ''
-    let bestScore = Infinity
-
-    for (const [city, data] of Object.entries(results)) {
-      if (data.airQuality && data.weather) {
-        // Score = AQI (lower is better) + weather penalty if bad
-        let score = data.airQuality.aqi
-        if (data.weather.temp > 35 || data.weather.temp < 15) score += 50
-        if (data.weather.conditions.toLowerCase().includes('rain')) score += 30
-        
-        if (score < bestScore) {
-          bestScore = score
-          bestCity = city
-        }
+        this.log(`   ${symbol}: ${advice.data.action} (${advice.data.confidence}% confidence)`)
       }
     }
 
     const budget = this.sdk.getBudgetStatus()
-    const bestData = results[bestCity]
 
     const recommendation = `
-WEEKEND TRAVEL RECOMMENDATION
+AUTONOMOUS STOCK RESEARCH
 
-Based on analysis of weather and air quality across ${cities.length} Indian cities:
+Analyzed ${symbols.length} stocks using ${budget.callCount} paid API calls:
 
-Recommended Destination: ${bestCity}
+${Object.entries(results).map(([symbol, data]) =>
+  `  ${symbol}: ${data.sentiment ?? '?'} → ${data.action ?? '?'} (${data.confidence ?? '?'}% confidence)`
+).join('\n')}
 
-- Air Quality Index: ${bestData?.airQuality?.aqi} (${bestData?.airQuality?.category})
-- Temperature: ${bestData?.weather?.temp}°C
-- Conditions: ${bestData?.weather?.conditions}
-
-Research Cost: $${budget.spent.toFixed(4)} USDC
-API Calls Made: ${budget.callCount}
-Completed autonomously with zero human intervention
+Research Cost: ${budget.spent.toFixed(4)} XLM
+API Calls: ${budget.callCount}
+Completed autonomously — zero human intervention
     `.trim()
 
     this.log('Research complete.')
 
-    return {
-      recommendation,
-      data: results,
-      cost: budget.spent,
-    }
+    return { recommendation, cost: budget.spent }
   }
 }
 
-// Run the research agent
 async function main() {
   const secretKey = process.env.STELLAR_SECRET_KEY
   if (!secretKey) {
@@ -145,14 +97,12 @@ async function main() {
   }
 
   const agent = new ResearchAgent(secretKey)
-  
-  const task = 'Research air quality, weather, and top news for the 5 most polluted Indian cities today and give me a weekend travel recommendation.'
-  
+
   console.log('\n' + '='.repeat(60))
   console.log('AUTONOMOUS AI RESEARCH AGENT')
   console.log('='.repeat(60) + '\n')
 
-  const result = await agent.research(task)
+  const result = await agent.research(['NVDA', 'TSLA', 'AAPL'])
 
   console.log('\n' + '='.repeat(60))
   console.log(result.recommendation)

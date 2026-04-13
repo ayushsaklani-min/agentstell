@@ -1,5 +1,6 @@
 /**
  * AgentMarket CLI - API Client
+ * Native XLM payments on Stellar mainnet
  */
 
 import { loadConfig, appendHistory, readRegistryCache, writeRegistryCache } from './config';
@@ -10,63 +11,23 @@ const REGISTRY_TTL_MS = 60 * 60 * 1000 // 1 hour
 
 const FALLBACK_REGISTRY: ApiInfo[] = [
   {
-    name: 'Weather',
-    slug: 'weather',
-    description: 'Get current weather data for any city worldwide',
-    category: 'Data',
-    priceUsdc: 0.001,
-    endpoint: '/api/proxy/weather',
-    method: 'GET',
-    provider: 'AgentMarket',
-  },
-  {
-    name: 'Air Quality',
-    slug: 'air-quality',
-    description: 'Get real-time air quality index and pollution data',
-    category: 'Data',
-    priceUsdc: 0.001,
-    endpoint: '/api/proxy/air-quality',
-    method: 'GET',
-    provider: 'AgentMarket',
-  },
-  {
-    name: 'News',
-    slug: 'news',
-    description: 'Fetch latest news headlines by topic',
-    category: 'Data',
-    priceUsdc: 0.002,
-    endpoint: '/api/proxy/news',
-    method: 'GET',
-    provider: 'AgentMarket',
-  },
-  {
-    name: 'Currency Exchange',
-    slug: 'currency',
-    description: 'Convert between currencies with live rates',
+    name: 'Stock Analyst',
+    slug: 'stock-analyst',
+    description: 'Live Yahoo Finance data + Gemini sentiment analysis',
     category: 'Finance',
-    priceUsdc: 0.001,
-    endpoint: '/api/proxy/currency',
+    priceXlm: 0.1,
+    endpoint: '/api/proxy/stock-analyst',
     method: 'GET',
     provider: 'AgentMarket',
   },
   {
-    name: 'Geolocation',
-    slug: 'geolocation',
-    description: 'Get location data from IP address',
-    category: 'Geo',
-    priceUsdc: 0.001,
-    endpoint: '/api/proxy/geolocation',
+    name: 'Trading Advisor',
+    slug: 'trading-advisor',
+    description: 'Two-stage Gemini reasoning → BUY/HOLD/SELL with targets',
+    category: 'Finance',
+    priceXlm: 0.5,
+    endpoint: '/api/proxy/trading-advisor',
     method: 'GET',
-    provider: 'AgentMarket',
-  },
-  {
-    name: 'AI Inference',
-    slug: 'ai',
-    description: 'Run AI inference queries (GPT, Claude)',
-    category: 'AI',
-    priceUsdc: 0.005,
-    endpoint: '/api/proxy/ai',
-    method: 'POST',
     provider: 'AgentMarket',
   },
 ];
@@ -82,6 +43,7 @@ interface DiscoverEntry {
   endpoint: string
   method: 'GET' | 'POST'
   provider: { name: string; stellarAddress: string }
+  input?: { params: { name: string; type: string; required: boolean; description: string }[] }
 }
 
 function toApiInfo(entry: DiscoverEntry): ApiInfo {
@@ -90,10 +52,11 @@ function toApiInfo(entry: DiscoverEntry): ApiInfo {
     slug: entry.slug,
     description: entry.description,
     category: entry.category,
-    priceUsdc: entry.price.amount,
+    priceXlm: entry.price.amount,
     endpoint: entry.endpoint,
     method: entry.method,
     provider: entry.provider.name,
+    params: Array.isArray(entry.input?.params) ? entry.input.params : [],
   }
 }
 
@@ -184,12 +147,25 @@ export async function callApi(
     return { success: false, error: 'Wallet not configured. Run: agentmarket init' };
   }
 
-  const usdcBalance = parseFloat(wallet.usdcBalance);
-  if (usdcBalance < api.priceUsdc) {
+  const xlmBalance = parseFloat(wallet.xlmBalance);
+  if (xlmBalance < api.priceXlm) {
     return {
       success: false,
-      error: `Insufficient USDC balance. Need ${api.priceUsdc}, have ${usdcBalance}`,
+      error: `Insufficient XLM balance. Need ${api.priceXlm}, have ${xlmBalance}`,
     };
+  }
+
+  // Validate required params before paying
+  if (api.params?.length) {
+    const missing = api.params
+      .filter(p => p.required && (params[p.name] === undefined || params[p.name] === null || params[p.name] === ''))
+      .map(p => `  --${p.name} (${p.type}): ${p.description}`)
+    if (missing.length > 0) {
+      return {
+        success: false,
+        error: `Missing required params — no payment made:\n${missing.join('\n')}`,
+      };
+    }
   }
 
   const baseUrl = config.marketplaceUrl;
@@ -236,7 +212,7 @@ export async function callApi(
           success: false,
           error: `API call failed: ${retryResponse.status}`,
           txHash: paymentResult.txHash,
-          amountPaid: api.priceUsdc,
+          amountPaid: api.priceXlm,
         };
       }
 
@@ -246,11 +222,11 @@ export async function callApi(
       appendHistory({
         api: slug,
         timestamp: new Date().toISOString(),
-        amount: api.priceUsdc,
+        amount: api.priceXlm,
         txHash: paymentResult.txHash,
       });
 
-      return { success: true, data, txHash: paymentResult.txHash, amountPaid: api.priceUsdc, latencyMs };
+      return { success: true, data, txHash: paymentResult.txHash, amountPaid: api.priceXlm, latencyMs };
     }
 
     if (initialResponse.ok) {

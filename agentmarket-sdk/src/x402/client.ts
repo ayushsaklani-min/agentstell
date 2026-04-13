@@ -1,6 +1,6 @@
 /**
  * x402 Payment Protocol Implementation
- * Handles HTTP 402 Payment Required flow
+ * Handles HTTP 402 Payment Required flow — native XLM payments
  */
 
 import type { PaymentDetails, PaymentProof, NetworkType } from '../types'
@@ -34,7 +34,7 @@ export class X402Client {
    * Execute an x402 payment flow:
    * 1. Make initial request
    * 2. If 402 returned, extract payment details
-   * 3. Send payment via Stellar
+   * 3. Send native XLM payment via Stellar
    * 4. Retry request with payment proof
    */
   async executeWithPayment<T>(
@@ -55,12 +55,12 @@ export class X402Client {
 
     // Step 2: Parse 402 response for payment details
     const paymentDetails = await this.parsePaymentRequired(initialResponse)
-    
+
     if (this.debug) {
       console.log('[x402] Payment required:', paymentDetails)
     }
 
-    // Step 3: Send payment via Stellar
+    // Step 3: Send native XLM payment via Stellar
     const paymentResult = await this.stellar.sendPayment(
       paymentDetails.recipient,
       paymentDetails.amount,
@@ -95,7 +95,7 @@ export class X402Client {
     }
 
     const data = await retryResponse.json() as T
-    
+
     return {
       data,
       txHash: paymentResult.txHash,
@@ -109,13 +109,13 @@ export class X402Client {
   private async parsePaymentRequired(response: Response): Promise<PaymentDetails> {
     try {
       const body = await response.json() as { payment?: Record<string, unknown> }
-      
+
       if (!body.payment) {
         throw new Error('Invalid 402 response: missing payment details')
       }
 
       const payment = body.payment
-      
+
       // Validate required fields
       if (!payment.recipient || !payment.amount) {
         throw new Error('Invalid payment details: missing recipient or amount')
@@ -124,7 +124,7 @@ export class X402Client {
       return {
         recipient: String(payment.recipient),
         amount: String(payment.amount),
-        currency: (payment.currency as 'USDC') ?? 'USDC',
+        currency: 'XLM',
         memo: String(payment.memo ?? ''),
         network: (payment.network as NetworkType) ?? this.network,
         apiId: String(payment.apiId ?? ''),
@@ -157,7 +157,7 @@ export class X402Client {
   ): Promise<{ valid: boolean; txHash?: string; error?: string }> {
     try {
       // Extract proof from headers
-      const proofHeader = headers instanceof Headers 
+      const proofHeader = headers instanceof Headers
         ? headers.get(X402_HEADERS.PAYMENT_PROOF)
         : headers[X402_HEADERS.PAYMENT_PROOF]
 
@@ -186,9 +186,9 @@ export class X402Client {
 
       return { valid: true, txHash: proof.txHash }
     } catch (error) {
-      return { 
-        valid: false, 
-        error: `Validation error: ${error instanceof Error ? error.message : 'Unknown'}` 
+      return {
+        valid: false,
+        error: `Validation error: ${error instanceof Error ? error.message : 'Unknown'}`
       }
     }
   }
@@ -226,7 +226,7 @@ export function createPaymentRequiredResponse(
   return new Response(
     JSON.stringify({
       error: 'Payment Required',
-      message: `This API requires payment of ${payment.amount} ${payment.currency}`,
+      message: `This API requires payment of ${payment.amount} XLM`,
       payment,
     }),
     {

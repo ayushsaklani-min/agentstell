@@ -1,6 +1,6 @@
 {
   "name": "agstell-sdk",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "SDK for AI agents to access APIs via x402 micropayments on Stellar. Payment is authentication.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
