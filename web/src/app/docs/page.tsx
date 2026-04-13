@@ -151,13 +151,13 @@ import { AgentMarket } from 'agstell-sdk'
 
 const agent = new AgentMarket({
   secretKey: process.env.STELLAR_SECRET_KEY,
-  network: 'testnet',
+  network: 'mainnet',
 })
 
-// Payment happens automatically via Stellar
-const result = await agent.get('weather', { city: 'Tokyo' })
-console.log(result.data)   // { temp: 22, conditions: 'Sunny', ... }
-console.log(result.metadata.txHash)  // Stellar transaction hash`}
+// Payment happens automatically via Stellar — real XLM on mainnet
+const result = await agent.stockAnalyst('AAPL')
+console.log(result.data.sentiment)   // bullish / bearish / neutral
+console.log(result.metadata.txHash)  // verifiable on Stellar Explorer`}
                 />
               </Section>
             </div>
@@ -182,11 +182,7 @@ console.log(result.metadata.txHash)  // Stellar transaction hash`}
                 </div>
                 <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-4">
                   <p className="text-sm text-blue-800">
-                    <strong>Requirements:</strong> Node.js 18+ and a funded Stellar testnet wallet. Use{' '}
-                    <a href="https://laboratory.stellar.org/" target="_blank" rel="noreferrer" className="underline">
-                      Stellar Laboratory
-                    </a>{' '}
-                    or the CLI to generate and fund your wallet.
+                    <strong>Requirements:</strong> Node.js 18+ and a funded Stellar mainnet wallet with XLM. Use the CLI (<code>agentmarket init</code>) to generate a keypair, then fund via any exchange.
                   </p>
                 </div>
               </Section>
@@ -208,14 +204,14 @@ const agent = new AgentMarket({
   // Your Stellar secret key (never hardcode — use env vars)
   secretKey: process.env.STELLAR_SECRET_KEY,
 
-  // 'testnet' or 'mainnet' (default: 'testnet')
-  network: 'testnet',
+  // 'testnet' or 'mainnet' (default: 'mainnet')
+  network: 'mainnet',
 
   // Optional: spending limits
   budgetLimits: {
-    maxPerCall: 0.01,      // Max USDC per single call
-    maxPerSession: 1.0,    // Max USDC per SDK session
-    maxPerProvider: 0.5,   // Max USDC per provider
+    maxPerCall: 0.5,       // Max XLM per single call
+    maxPerSession: 5.0,    // Max XLM per SDK session
+    maxPerProvider: 2.0,   // Max XLM per provider
   },
 
   // Optional: custom marketplace base URL
@@ -379,7 +375,7 @@ unsubscribe()`}
                     {
                       n: '3',
                       title: 'Fill in your API details',
-                      body: 'Enter your endpoint URL (must be HTTPS), price in USDC, category, and description.',
+                      body: 'Enter your endpoint URL (must be HTTPS), price in XLM, category, and description.',
                     },
                     {
                       n: '4',
@@ -423,9 +419,6 @@ npm install -g agentmarket-cli
 
 # Initialise — generates a Stellar keypair and saves to ~/.agentmarket/config.json
 agentmarket init
-
-# Fund on Stellar testnet via Friendbot
-agentmarket fund
 
 # List available APIs
 agentmarket list

@@ -226,7 +226,7 @@ function OverviewTab({ dashboard, onTabChange }: { dashboard: ProviderDashboardD
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatCard label="Total Revenue" value={s ? fmt$(s.totalRevenue) : '$0.0000'} sub="USDC earned to date" icon={DollarSign} accent="emerald" />
+        <StatCard label="Total Revenue" value={s ? fmt$(s.totalRevenue) : '$0.0000'} sub="XLM earned to date" icon={DollarSign} accent="emerald" />
         <StatCard label="API Calls" value={s ? fmtCompact(s.totalCalls) : '0'} sub="Paid requests processed" icon={Activity} accent="indigo" />
         <StatCard label="Live APIs" value={s ? String(s.activeApis) : '0'} sub={s ? `${s.totalApis} total registered` : 'No APIs yet'} icon={Shield} accent="violet" />
         <StatCard label="Success Rate" value={s ? fmtPct(s.successRate) : '—'} sub={s?.totalCalls ? `${s.avgLatencyMs}ms avg latency` : 'No traffic yet'} icon={BarChart3} accent="amber" />
@@ -487,7 +487,7 @@ function RegisterTab({ providerAddress, registering, registerError, registerSucc
                   {['Data', 'AI', 'Finance', 'Geo', 'Utilities', 'News', 'Weather', 'Agent'].map((c) => <option key={c}>{c}</option>)}
                 </Select>
               </div>
-              <div><FieldLabel hint="USDC per call">Price *</FieldLabel><Input name="priceUsdc" type="number" min="0.001" step="0.001" placeholder="0.001" required /></div>
+              <div><FieldLabel hint="XLM per call">Price *</FieldLabel><Input name="priceUsdc" type="number" min="0.001" step="0.001" placeholder="0.1" required /></div>
             </div>
           </div>
 
@@ -617,7 +617,7 @@ function CallsTab({ dashboard }: { dashboard: ProviderDashboardData | null }) {
                   </td>
                   <td className="px-5 py-3.5">
                     <a
-                      href={`https://testnet.stellarchain.io/tx/${call.txHash}`}
+                      href={`https://stellar.expert/explorer/public/tx/${call.txHash}`}
                       target="_blank"
                       rel="noreferrer"
                       className="flex items-center gap-1 text-xs font-mono text-gray-400 hover:text-indigo-600 transition-colors"
@@ -650,7 +650,7 @@ function SettingsTab({ dashboard }: { dashboard: ProviderDashboardData | null })
               { label: 'Email', value: provider.email ?? 'Not set' },
               { label: 'Wallet', value: provider.stellarAddress, mono: true },
               { label: 'Member since', value: new Date(provider.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) },
-              { label: 'Total earnings', value: `${fmt$(provider.totalEarnings)} USDC` },
+              { label: 'Total earnings', value: `${fmt$(provider.totalEarnings)} XLM` },
             ].map(({ label, value, mono }) => (
               <div key={label} className="rounded-lg bg-gray-50 px-4 py-3">
                 <dt className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</dt>
@@ -800,7 +800,7 @@ function EarningsProofTab({ providerAddress }: { providerAddress: string }) {
           <div className="grid grid-cols-3 gap-4">
             <div className="rounded-xl border border-gray-200/80 bg-white p-4 shadow-sm">
               <p className="text-lg font-bold text-emerald-700">{fmt$(proof.totalEarningsUsdc)}</p>
-              <p className="text-xs text-gray-400 mt-0.5">Total earned (USDC)</p>
+              <p className="text-xs text-gray-400 mt-0.5">Total earned (XLM)</p>
             </div>
             <div className="rounded-xl border border-gray-200/80 bg-white p-4 shadow-sm">
               <p className="text-lg font-bold text-gray-900">{proof.callCount}</p>

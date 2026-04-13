@@ -29,7 +29,7 @@ interface PaymentRequest {
 
 function getDemoWalletConfig(): { secretKey: string | undefined; network: NetworkType } {
   const configuredNetwork = process.env.DEMO_WALLET_NETWORK?.trim();
-  const network = configuredNetwork === 'mainnet' ? 'mainnet' : 'testnet';
+  const network: NetworkType = configuredNetwork === 'testnet' ? 'testnet' : 'mainnet';
 
   return {
     secretKey: process.env.DEMO_WALLET_SECRET_KEY?.trim() || undefined,

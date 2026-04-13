@@ -27,7 +27,7 @@ const FEATURES = [
     color: 'text-indigo-600',
     bg: 'bg-indigo-50',
     title: 'Payment IS Authentication',
-    desc: 'No API keys, no accounts. Pay per call in USDC and get instant access.',
+    desc: 'No API keys, no accounts. Pay per call in XLM and get instant access.',
   },
   {
     icon: Timer,
@@ -55,7 +55,7 @@ const FEATURES = [
 const STEPS = [
   { n: '1', title: 'Request API', desc: 'Agent calls any endpoint' },
   { n: '2', title: 'Receive 402', desc: 'Server returns payment details' },
-  { n: '3', title: 'Pay via Stellar', desc: 'SDK pays USDC in ~3 seconds' },
+  { n: '3', title: 'Pay via Stellar', desc: 'SDK pays XLM in ~3 seconds' },
   { n: '4', title: 'Get Data', desc: 'Proof verified, data returned' },
 ]
 
@@ -70,7 +70,7 @@ export default function HomePage() {
           {/* Pill badge */}
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50 px-4 py-1.5 text-sm text-indigo-700">
             <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-            Built on Stellar · x402 Protocol · Testnet Live
+            Built on Stellar · x402 Protocol · Mainnet Live
           </div>
 
           <h1 className="mb-5 text-5xl font-bold leading-tight tracking-tight text-gray-900 md:text-6xl lg:text-7xl">
@@ -81,7 +81,7 @@ export default function HomePage() {
           <p className="mx-auto mb-10 max-w-2xl text-lg text-gray-500">
             The first marketplace where{' '}
             <strong className="font-semibold text-gray-900">payment IS authentication</strong>.
-            No API keys. No subscriptions. Agents pay per call with USDC on Stellar.
+            No API keys. No subscriptions. Agents pay per call with XLM on Stellar mainnet.
           </p>
 
           <div className="mb-16 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -116,9 +116,10 @@ import { AgentMarket } from 'agstell-sdk'
 
 const agent = new AgentMarket({ secretKey: process.env.STELLAR_KEY })
 
-// Pay-per-call — $0.001 USDC, settled on Stellar
-const weather = await agent.get('weather', { city: 'Tokyo' })
-console.log(weather.data)  // { temp: 22, conditions: 'Sunny', ... }`}
+// Pay-per-call — 0.1 XLM, settled on Stellar mainnet
+const result = await agent.stockAnalyst('AAPL')
+console.log(result.data.sentiment)  // bullish/bearish/neutral
+console.log(result.metadata.txHash) // live on Stellar Explorer`}
             </pre>
           </div>
         </div>
@@ -179,7 +180,7 @@ console.log(weather.data)  // { temp: 22, conditions: 'Sunny', ... }`}
           <div className="mb-10 flex items-end justify-between">
             <div>
               <h2 className="text-3xl font-bold text-gray-900">Available APIs</h2>
-              <p className="mt-2 text-gray-500">Pay-per-call pricing in USDC. No account needed.</p>
+              <p className="mt-2 text-gray-500">Pay-per-call pricing in XLM on Stellar mainnet. No account needed.</p>
             </div>
             <Link href="/marketplace" className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
               View all →
@@ -222,7 +223,7 @@ console.log(weather.data)  // { temp: 22, conditions: 'Sunny', ... }`}
               </div>
               <h2 className="mb-3 text-2xl font-bold text-gray-900">For AI Agents</h2>
               <p className="mb-6 text-gray-500">
-                Install the SDK, fund a Stellar wallet with testnet USDC, and start calling APIs autonomously.
+                Install the SDK, fund a Stellar mainnet wallet with XLM, and start calling APIs autonomously.
                 No sign-ups, no API key management.
               </p>
               <ul className="mb-8 space-y-2.5">
@@ -254,7 +255,7 @@ console.log(weather.data)  // { temp: 22, conditions: 'Sunny', ... }`}
               </div>
               <h2 className="mb-3 text-2xl font-bold text-gray-900">For API Providers</h2>
               <p className="mb-6 text-gray-500">
-                Register your API, set a USDC price, and start earning. Payments land directly
+                Register your API, set an XLM price, and start earning. Payments land directly
                 in your Stellar wallet — no intermediaries, no monthly payouts.
               </p>
               <ul className="mb-8 space-y-2.5">
@@ -282,7 +283,7 @@ console.log(weather.data)  // { temp: 22, conditions: 'Sunny', ... }`}
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="mb-4 text-3xl font-bold text-gray-900">Ready to build?</h2>
           <p className="mb-8 text-gray-500">
-            Get started in minutes. Install the SDK, get testnet USDC, and make your first paid API call.
+            Get started in minutes. Install the SDK, fund a Stellar wallet with XLM, and make your first paid API call.
           </p>
           <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a
