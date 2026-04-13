@@ -56,6 +56,43 @@ function buildApiUrl(id: string, query: Record<string, string>) {
   return `/api/proxy/${id}?${new URLSearchParams(query)}`
 }
 
+// Pre-recorded simulation data — real tx hashes from mainnet calls
+const SIM_DATA: Record<string, { txHash: string; explorerUrl: string; data: Record<string, unknown> }> = {
+  'stock-analyst': {
+    txHash: '9a8e1fac30e7959cc8fb508a6a7fc4db19648577d577c53947bffd206c8d2fef',
+    explorerUrl: 'https://stellar.expert/explorer/public/tx/9a8e1fac30e7959cc8fb508a6a7fc4db19648577d577c53947bffd206c8d2fef',
+    data: {
+      symbol: 'AAPL', companyName: 'Apple Inc.',
+      sentiment: 'bullish',
+      reason: 'Strong AI product roadmap and services revenue growth driving investor confidence.',
+      price: 213.49, previousClose: 210.62, change: 2.87, changePercent: 1.36,
+      volume: 45821300, fiftyTwoWeekHigh: 260.10, fiftyTwoWeekLow: 164.08,
+      analysisBy: 'gemini-2.5-flash-lite',
+    },
+  },
+  'trading-advisor': {
+    txHash: '9a8e1fac30e7959cc8fb508a6a7fc4db19648577d577c53947bffd206c8d2fef',
+    explorerUrl: 'https://stellar.expert/explorer/public/tx/9a8e1fac30e7959cc8fb508a6a7fc4db19648577d577c53947bffd206c8d2fef',
+    data: {
+      symbol: 'TSLA', companyName: 'Tesla, Inc.',
+      currentPrice: 248.71, changePercent: 2.14,
+      recommendation: {
+        action: 'BUY', confidence: 72,
+        entryTarget: 243.74, exitTarget: 268.61, stopLoss: 236.27,
+        timeHorizon: 'medium', riskLevel: 'HIGH',
+        reasons: ['Bullish momentum with EV market expansion', 'AI autonomous driving progress', 'Strong quarterly delivery numbers'],
+      },
+      analysisBy: 'gemini-2.5-flash-lite',
+      composition: {
+        userPayment: { txHash: '9a8e1fac30e7959cc8fb508a6a7fc4db19648577d577c53947bffd206c8d2fef', amount: '0.5 XLM', to: 'Trading Advisor', explorerUrl: 'https://stellar.expert/explorer/public/tx/9a8e1fac30e7959cc8fb508a6a7fc4db19648577d577c53947bffd206c8d2fef' },
+        agentPayment: { txHash: '3efaa3265a7bc5ca148e79dd1d616d0e1763303dd808cb0d4691d1073156978c', amount: '0.1 XLM', from: 'Trading Advisor (GCIWVZ3X…)', to: 'Stock Analyst', explorerUrl: 'https://stellar.expert/explorer/public/tx/3efaa3265a7bc5ca148e79dd1d616d0e1763303dd808cb0d4691d1073156978c' },
+        stockAnalystSentiment: 'bullish',
+        margin: '0.4 XLM captured by Trading Advisor',
+      },
+    },
+  },
+}
+
 export default function DemoPage() {
   const [selected, setSelected] = useState('stock-analyst')
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -133,6 +170,28 @@ export default function DemoPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSimulate = async () => {
+    const api = APIS.find((a) => a.id === selected)!
+    const sim = SIM_DATA[api.id]
+    setLoading(true)
+    const txId = Math.random().toString(36).slice(2, 9)
+
+    setTransactions((prev) => [
+      { id: txId, api: api.name, amount: api.price, status: 'pending', timestamp: new Date() },
+      ...prev,
+    ])
+
+    await new Promise((r) => setTimeout(r, 1500))
+    setTransactions((prev) =>
+      prev.map((tx) => tx.id === txId ? { ...tx, status: 'confirmed', txHash: sim.txHash, explorerUrl: sim.explorerUrl, amount: api.price } : tx)
+    )
+
+    await new Promise((r) => setTimeout(r, 1500))
+    setTransactions((prev) => prev.map((tx) => tx.id === txId ? { ...tx, status: 'success', data: sim.data } : tx))
+    setTotalSpent((s) => s + api.price)
+    setLoading(false)
   }
 
   const selectedApi = APIS.find((a) => a.id === selected)!
@@ -274,22 +333,30 @@ export default function DemoPage() {
                   </span>
                 ) : (
                   <span className="flex items-center justify-center gap-2">
-                    <Send className="h-4 w-4" /> Call {selectedApi.name} API
+                    <Send className="h-4 w-4" /> Call {selectedApi.name} — Live ({selectedApi.price.toFixed(1)} XLM)
                   </span>
                 )}
               </button>
 
-              <p className="mt-3 text-center text-xs text-gray-400">
-                <span>{'Sends '}</span>
-                <span className="font-bold text-amber-600">{selectedApi.price.toFixed(2)} XLM</span>
-                <span>{' natively on Stellar mainnet'}</span>
+              <button
+                onClick={handleSimulate}
+                disabled={loading}
+                className="w-full rounded-xl border border-indigo-200 bg-indigo-50 py-3 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <Zap className="h-4 w-4" /> Simulate Demo (no XLM)
+                </span>
+              </button>
+
+              <p className="mt-1 text-center text-xs text-gray-400">
+                Simulate replays a real mainnet call — same tx hashes, no spend
               </p>
 
               {/* Flow steps */}
               <div className="mt-5 space-y-2">
                 {[
                   { step: '1', label: 'GET /api/proxy/' + selectedApi.id, hint: 'Returns HTTP 402' },
-                  { step: '2', label: 'Pay via Stellar USDC', hint: '~3 second settlement' },
+                  { step: '2', label: 'Pay via Stellar XLM', hint: '~3 second settlement' },
                   { step: '3', label: 'Retry with X-Payment-Proof', hint: 'Server verifies tx hash' },
                 ].map(({ step, label, hint }) => (
                   <div key={step} className="flex items-center gap-3 rounded-lg bg-gray-50 px-3 py-2.5">
@@ -355,7 +422,7 @@ export default function DemoPage() {
                       <p className="mt-1 text-[11px] text-gray-400">{tx.timestamp.toLocaleTimeString()}</p>
 
                       {tx.status === 'pending' && (
-                        <p className="mt-2 text-xs font-medium text-indigo-600">Sending USDC payment…</p>
+                        <p className="mt-2 text-xs font-medium text-indigo-600">Sending XLM payment on Stellar…</p>
                       )}
                       {tx.status === 'confirmed' && (
                         <p className="mt-2 text-xs font-medium text-blue-600">Payment confirmed. Fetching data…</p>
