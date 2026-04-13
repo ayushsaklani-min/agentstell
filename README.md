@@ -16,11 +16,24 @@
 An AI agent makes an HTTP call. The server replies `402 Payment Required` with a Stellar address and an XLM amount. The agent pays. The agent retries with the tx hash. The server verifies on-chain and returns data. **No accounts, no API keys, no humans in the loop. And it's live on mainnet today.**
 
 ```
-Agent ──GET /api/proxy/stock-analyst──▶ Server
-      ◀──402 { 0.1 XLM → GALXP6IQ…OOZ, mainnet }──
-      ──pays 0.1 XLM on Stellar mainnet──▶ Horizon
-      ──GET + X-Payment-Proof: <txHash>──▶ Server
-      ◀──200 { sentiment: "bullish", price: 195.23 }──
+── stock-analyst (simple flow) ──────────────────────────────────────
+Agent  ──GET /api/proxy/stock-analyst──▶ Server
+       ◀── 402 { 0.1 XLM → GALXP6IQ… } ──
+       ── pays 0.1 XLM on Stellar mainnet ──▶ Horizon
+       ── GET + X-Payment-Proof: <txHash> ──▶ Server
+       ◀── 200 { sentiment: "bullish", price: 195.23 } ──
+
+── trading-advisor (A2A composition) ───────────────────────────────
+Agent  ──GET /api/proxy/trading-advisor──▶ Server
+       ◀── 402 { 0.5 XLM → GALXP6IQ… } ──
+       ── pays 0.5 XLM ──▶ Horizon
+
+       Server (Trading Advisor wallet GCIWVZ3X…):
+         ── pays 0.1 XLM to Stock Analyst ──▶ Horizon  ← agent pays agent
+         ◀── sentiment + price data ──
+         ── Gemini reasoning on analyst data ──
+
+       ◀── 200 { action: "BUY", composition: { txHash1, txHash2 } } ──
 ```
 
 ---
@@ -43,16 +56,41 @@ A marketplace of APIs is a directory. **A marketplace of agents that pay each ot
 
 ---
 
-## Agent-to-Agent in action
+## Agent-to-Agent composition — live on mainnet
 
-We ship two agents on day one to prove the composition story:
+Every `trading-advisor` call triggers **two real Stellar transactions**:
 
-| Agent | What it does | Price | Margin source |
+```
+You pay 0.5 XLM ──▶ Trading Advisor  (GALXP6IQ…)
+                          │
+                          │  Trading Advisor pays Stock Analyst via x402
+                          ▼
+                    0.1 XLM ──▶ Stock Analyst  (GALXP6IQ…)
+                          │
+                          │  Gets sentiment + price data back
+                          ▼
+                    Gemini reasoning on top of analyst data
+                          │
+                          ▼
+         BUY/HOLD/SELL + entry/exit/stop-loss returned to you
+```
+
+The response includes both transaction hashes so anyone can verify the agent-to-agent payment on Stellar explorer:
+
+```json
+"composition": {
+  "userPayment":  { "txHash": "a1b2c3…", "amount": "0.5 XLM", "explorerUrl": "https://stellar.expert/…" },
+  "agentPayment": { "txHash": "d4e5f6…", "amount": "0.1 XLM", "from": "Trading Advisor", "explorerUrl": "https://stellar.expert/…" },
+  "margin": "0.4 XLM captured by Trading Advisor"
+}
+```
+
+Trading Advisor has its own Stellar wallet (`GCIWVZ3X…`). It autonomously pays for the data it needs. No human approved the transaction. No API key was used. **This is the agent economy — agents earning and spending independently.**
+
+| Agent | What it does | Price | How it earns |
 |---|---|:---:|---|
-| 🟦 **Stock Analyst** | Live Yahoo Finance data + Gemini sentiment (bullish / bearish / neutral + reason) | **0.1 XLM** | Raw data layer |
-| 🟪 **Trading Advisor** | Two-stage Gemini reasoning → BUY/HOLD/SELL with entry, exit, stop-loss, risk, confidence | **0.5 XLM** | **Pays Stock Analyst for data, captures 5× margin on judgement** |
-
-`Trading Advisor` is not an API. It is an **autonomous service** that an orchestrator agent can call — and the orchestrator never knows or cares whether Trading Advisor was built by us, by a hedge fund, or by another agent. It pays in XLM and gets a recommendation. That's the agent economy.
+| 🟦 **Stock Analyst** | Live Yahoo Finance + Gemini sentiment (bullish/bearish/neutral) | **0.1 XLM** | Sells raw data to anyone — including other agents |
+| 🟪 **Trading Advisor** | Pays Stock Analyst for data → two-stage Gemini → BUY/HOLD/SELL with targets | **0.5 XLM** | Captures 0.4 XLM margin on top of the data layer |
 
 Anyone can list a new agent and immediately become a node in this graph.
 
