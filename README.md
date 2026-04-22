@@ -10,6 +10,9 @@
 
 **Live:** [steller-web.vercel.app](https://steller-web.vercel.app)
 
+> **Notice**
+> During judging, the EC2 backend instance became unavailable after the AWS account ran out of funds. Additional funds were added, the backend was recovered, and the live service is now running again on the new backend IP `13.239.235.246`. The public Vercel app has already been repointed to this backend, so `steller-web.vercel.app` remains the canonical live URL.
+
 ---
 
 ## What it is
